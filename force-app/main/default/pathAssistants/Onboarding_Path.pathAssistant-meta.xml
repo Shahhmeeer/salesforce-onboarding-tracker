@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<PathAssistant xmlns="http://soap.sforce.com/2006/04/metadata">
+    <active>true</active>
+    <entityName>Onboarding__c</entityName>
+    <fieldName>Stage__c</fieldName>
+    <masterLabel>Onboarding Path</masterLabel>
+    <pathAssistantSteps>
+        <fieldNames>Target_Go_Live_Date__c</fieldNames>
+        <info
+    >&lt;p&gt;Book the kickoff call. Confirm the go-live date with the customer.&lt;/p&gt;</info>
+        <picklistValueName>Kickoff_Scheduled</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <fieldNames>Gathering_Info_Notes__c</fieldNames>
+        <info
+    >&lt;p&gt;Capture requirements, contacts and integrations. Notes are required to move on.&lt;/p&gt;</info>
+        <picklistValueName>Gathering_Info</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <fieldNames>Implementation_Notes__c</fieldNames>
+        <info
+    >&lt;p&gt;Record what was configured and any open issues. Notes are required to move on.&lt;/p&gt;</info>
+        <picklistValueName>Implementation</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <fieldNames>Implementation_Notes__c</fieldNames>
+        <info
+    >&lt;p&gt;Test with the customer. If QA fails, move back to Implementation and note why.&lt;/p&gt;</info>
+        <picklistValueName>QA_Review</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <fieldNames>Target_Go_Live_Date__c</fieldNames>
+        <info>&lt;p&gt;Confirm launch with the customer.&lt;/p&gt;</info>
+        <picklistValueName>Go_Live</picklistValueName>
+    </pathAssistantSteps>
+    <pathAssistantSteps>
+        <info
+    >&lt;p&gt;Review the launch with the customer and close out.&lt;/p&gt;</info>
+        <picklistValueName>Post_Launch_Review</picklistValueName>
+    </pathAssistantSteps>
+    <recordTypeName>__MASTER__</recordTypeName>
+</PathAssistant>
