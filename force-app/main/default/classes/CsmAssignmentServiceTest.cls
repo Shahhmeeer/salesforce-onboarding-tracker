@@ -310,6 +310,23 @@ private class CsmAssignmentServiceTest {
   }
 
   @IsTest
+  static void oneBacklogRecordGetsASingularAlertBody() {
+    List<Onboarding__c> onboardings = insertNew(1);
+
+    Assert.areEqual(1, countFor(countsByOwner(onboardings), backlogQueueId()));
+    OnboardingTriggerHandler.BacklogAlert alert = OnboardingTriggerHandler.lastBacklogAlert;
+    Assert.areEqual(1, alert.backlogCount, 'Body count');
+    Assert.isTrue(
+      alert.body.startsWith('1 new onboarding went'),
+      'Singular body: ' + alert.body
+    );
+    Assert.isTrue(
+      alert.body.endsWith('assign it.'),
+      'Singular body: ' + alert.body
+    );
+  }
+
+  @IsTest
   static void noCapacityRecordsSendsEverythingToBacklogWithOneAlert() {
     Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
@@ -323,6 +340,10 @@ private class CsmAssignmentServiceTest {
     );
     OnboardingTriggerHandler.BacklogAlert alert = OnboardingTriggerHandler.lastBacklogAlert;
     Assert.areEqual(3, alert.backlogCount, 'Body count');
+    Assert.isTrue(
+      alert.body.startsWith('3 new onboardings went'),
+      'Plural body: ' + alert.body
+    );
     Assert.isTrue(
       new Map<Id, Onboarding__c>(onboardings).containsKey(alert.targetId),
       'Target is one of the backlog records'

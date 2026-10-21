@@ -133,12 +133,13 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     Messaging.CustomNotification alert = new Messaging.CustomNotification();
     alert.setNotificationTypeId(types[0].Id);
     alert.setTitle(Label.Onboarding_Backlog_Alert_Title);
-    alert.setBody(
-      String.format(
-        Label.Onboarding_Backlog_Alert_Body,
-        new List<Object>{ backlog.size() }
-      )
+    String body = String.format(
+      backlog.size() == 1
+        ? Label.Onboarding_Backlog_Alert_Body_One
+        : Label.Onboarding_Backlog_Alert_Body,
+      new List<Object>{ backlog.size() }
     );
+    alert.setBody(body);
     alert.setTargetId(backlog[0].Id);
     Set<String> recipients = new Set<String>{ managers[0].Id };
     alert.send(recipients);
@@ -146,6 +147,7 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     backlogAlertsSent++;
     lastBacklogAlert = new BacklogAlert(
       backlog.size(),
+      body,
       backlog[0].Id,
       recipients
     );
@@ -162,12 +164,20 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     @TestVisible
     final Integer backlogCount;
     @TestVisible
+    final String body;
+    @TestVisible
     final Id targetId;
     @TestVisible
     final Set<String> recipientIds;
 
-    BacklogAlert(Integer backlogCount, Id targetId, Set<String> recipientIds) {
+    BacklogAlert(
+      Integer backlogCount,
+      String body,
+      Id targetId,
+      Set<String> recipientIds
+    ) {
       this.backlogCount = backlogCount;
+      this.body = body;
       this.targetId = targetId;
       this.recipientIds = recipientIds;
     }
