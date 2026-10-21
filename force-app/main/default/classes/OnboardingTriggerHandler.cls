@@ -7,7 +7,7 @@
  * owner through CsmAssignmentService (spec 7).
  * Before update: re-stamp Current_Stage_Entered__c on a stage change and rebuild the Name.
  * After insert: send one alert to CS managers if any records went to the backlog queue.
- * After insert / after update: hooks for stage tracking (S5).
+ * After insert / after update: stage rows through OnboardingStageTracker (spec 8).
  *
  * Name format: "<Customer> - Go Live <yyyy-MM-dd>", or "... - Go Live TBD" with no target date.
  * Customer is the onboarding's Account name, or the Opportunity name when there is no Account. The
@@ -75,11 +75,16 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
 
   protected override void afterInsert() {
     notifyBacklog((List<Onboarding__c>) Trigger.new);
-    // S5 hook: create the first stage row (Kickoff Scheduled) via OnboardingStageTracker.
+    OnboardingStageTracker.trackNewOnboardings(
+      (List<Onboarding__c>) Trigger.new
+    );
   }
 
   protected override void afterUpdate() {
-    // S5 hook: track stage changes via OnboardingStageTracker.
+    OnboardingStageTracker.trackStageChanges(
+      (List<Onboarding__c>) Trigger.new,
+      (Map<Id, Onboarding__c>) Trigger.oldMap
+    );
   }
 
   // Sends one alert to the CS managers group for the whole batch, however many records went to the
