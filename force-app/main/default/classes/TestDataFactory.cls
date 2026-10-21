@@ -1,7 +1,7 @@
 /**
  * Shared test data: Accounts, Opportunities (open, won or lost), the Automation_Bypass__c org
- * default with every switch off, a sales user with no onboarding access, CSM users with their
- * capacity records, and existing onboardings that make up a CSM's current load.
+ * default with every switch off, a sales user with no onboarding access, a CS manager user, CSM
+ * users with their capacity records, and existing onboardings that make up a CSM's current load.
  *
  * Opportunity stages are looked up by IsWon / IsClosed, never by name, so tests keep working if an
  * admin renames stages. build* methods return unsaved records; create* methods insert them.
@@ -15,6 +15,7 @@ public without sharing class TestDataFactory {
   private static final String PLATFORM_LICENCE = 'Salesforce Platform';
   private static final String SALESFORCE_LICENCE = 'Salesforce';
   private static final String CSM_PERMISSION_SET = 'Onboarding_CSM';
+  private static final String MANAGER_PERMISSION_SET = 'Onboarding_Manager';
 
   private static Map<String, String> stageNames;
 
@@ -159,6 +160,50 @@ public without sharing class TestDataFactory {
     System.runAs(new User(Id = UserInfo.getUserId())) {
       // System mode: test setup.
       insert as system user;
+    }
+    return user;
+  }
+
+  // A Standard User with Onboarding_Manager: a CS manager who can reassign and work the backlog.
+  public static User createManagerUser() {
+    // System mode: profile and permission set lookups for test setup.
+    Profile profile = [
+      SELECT Id
+      FROM Profile
+      WHERE Name = :SALES_PROFILE_NAME
+      WITH SYSTEM_MODE
+      LIMIT 1
+    ];
+    Id managerPermissionSetId = [
+      SELECT Id
+      FROM PermissionSet
+      WHERE Name = :MANAGER_PERMISSION_SET
+      WITH SYSTEM_MODE
+      LIMIT 1
+    ]
+    .Id;
+    String unique = String.valueOf(Crypto.getRandomInteger()).remove('-');
+    User user = new User(
+      ProfileId = profile.Id,
+      LastName = 'CS Manager',
+      Alias = 'mgr' + unique.left(5),
+      Email = 'cs.manager@onboarding-tracker.test',
+      Username = 'cs.manager.' + unique + '@onboarding-tracker.test',
+      EmailEncodingKey = 'UTF-8',
+      LanguageLocaleKey = 'en_US',
+      LocaleSidKey = 'en_US',
+      TimeZoneSidKey = 'Europe/London'
+    );
+    // Users and permission set assignments are setup DML; running them as the current user keeps
+    // them apart from the test's other DML (no MIXED_DML_OPERATION).
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+      // System mode: test setup.
+      insert as system user;
+      // System mode: test setup.
+      insert as system new PermissionSetAssignment(
+        AssigneeId = user.Id,
+        PermissionSetId = managerPermissionSetId
+      );
     }
     return user;
   }

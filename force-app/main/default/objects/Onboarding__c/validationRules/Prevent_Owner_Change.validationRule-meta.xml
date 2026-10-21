@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prevent_Owner_Change</fullName>
+    <active>true</active>
+    <description
+  >Only CS managers (Onboarding Reassign permission) can change the owner of an existing onboarding. Stops a CSM handing their work to someone else outside capacity checks. Assignment on insert is not affected.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+NOT(ISNEW()) &amp;&amp;
+ISCHANGED(OwnerId) &amp;&amp;
+NOT($Permission.Onboarding_Reassign)</errorConditionFormula>
+    <errorMessage>Only CS managers can reassign onboardings.</errorMessage>
+</ValidationRule>
