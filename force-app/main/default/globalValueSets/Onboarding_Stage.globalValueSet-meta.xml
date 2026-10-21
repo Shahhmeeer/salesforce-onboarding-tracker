@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GlobalValueSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <customValue>
+        <fullName>Kickoff_Scheduled</fullName>
+        <default>true</default>
+        <label>Kickoff Scheduled</label>
+    </customValue>
+    <customValue>
+        <fullName>Gathering_Info</fullName>
+        <default>false</default>
+        <label>Gathering Info</label>
+    </customValue>
+    <customValue>
+        <fullName>Implementation</fullName>
+        <default>false</default>
+        <label>Implementation</label>
+    </customValue>
+    <customValue>
+        <fullName>QA_Review</fullName>
+        <default>false</default>
+        <label>QA / Review</label>
+    </customValue>
+    <customValue>
+        <fullName>Go_Live</fullName>
+        <default>false</default>
+        <label>Go Live</label>
+    </customValue>
+    <customValue>
+        <fullName>Post_Launch_Review</fullName>
+        <default>false</default>
+        <label>Post-Launch Review</label>
+    </customValue>
+    <description
+  >The six onboarding stages in order. Shared by Onboarding Stage on Onboarding and on Onboarding Stage records so the two never drift apart.</description>
+    <masterLabel>Onboarding Stage</masterLabel>
+    <sorted>false</sorted>
+</GlobalValueSet>

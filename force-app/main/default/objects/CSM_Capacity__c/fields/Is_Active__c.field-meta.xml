@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Active__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description
+  >Whether this CSM can receive new onboardings. Untick to pause assignments (holiday, leaving the team) without losing their settings.</description>
+    <inlineHelpText
+  >Untick to stop new onboardings going to this CSM. Their existing onboardings are not affected.</inlineHelpText>
+    <label>Is Active</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

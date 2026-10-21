@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_At_Risk__c</fullName>
+    <description
+  >True when the onboarding is Active, its target go-live date has passed, and it has not reached Go Live yet.</description>
+    <externalId>false</externalId>
+    <formula>AND(
+    ISPICKVAL(Status__c, &quot;Active&quot;),
+    NOT(ISBLANK(Target_Go_Live_Date__c)),
+    Target_Go_Live_Date__c &lt; TODAY(),
+    OR(
+        ISPICKVAL(Stage__c, &quot;Kickoff_Scheduled&quot;),
+        ISPICKVAL(Stage__c, &quot;Gathering_Info&quot;),
+        ISPICKVAL(Stage__c, &quot;Implementation&quot;),
+        ISPICKVAL(Stage__c, &quot;QA_Review&quot;)
+    )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText
+  >Ticked when the target go-live date has passed and the onboarding is still active and not yet live.</inlineHelpText>
+    <label>Is At Risk</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

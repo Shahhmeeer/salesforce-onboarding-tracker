@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Stage__c</fullName>
+    <description
+  >Current onboarding stage, moved forward by the CSM. Uses the Onboarding Stage global value set. Field history tracked.</description>
+    <inlineHelpText
+  >Where this onboarding is now. Stages are worked through in order.</inlineHelpText>
+    <label>Stage</label>
+    <required>true</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetName>Onboarding_Stage</valueSetName>
+    </valueSet>
+</CustomField>

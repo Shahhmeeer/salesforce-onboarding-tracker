@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Gathering_Info_Notes__c</fullName>
+    <description
+  >Notes the CSM captures during information gathering. Required before the onboarding can move past Gathering Info.</description>
+    <inlineHelpText
+  >Record what you learned from the customer. Required before moving past Gathering Info.</inlineHelpText>
+    <label>Gathering Info Notes</label>
+    <length>32768</length>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Unique_Key__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description
+  >Onboarding ID and stage API value joined by a hyphen, set by automation. Guarantees one row per stage per onboarding and lets automation upsert. Hidden from layouts.</description>
+    <externalId>true</externalId>
+    <label>Unique Key</label>
+    <length>100</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

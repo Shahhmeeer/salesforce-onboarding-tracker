@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Stage_Sequence__c</fullName>
+    <description
+  >Position of the stage in the process, 1 to 6. Used to sort the related list and reports in stage order.</description>
+    <externalId>false</externalId>
+    <formula>CASE(Stage__c,
+    &quot;Kickoff_Scheduled&quot;, 1,
+    &quot;Gathering_Info&quot;, 2,
+    &quot;Implementation&quot;, 3,
+    &quot;QA_Review&quot;, 4,
+    &quot;Go_Live&quot;, 5,
+    &quot;Post_Launch_Review&quot;, 6,
+    NULL
+)</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <label>Stage Sequence</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
