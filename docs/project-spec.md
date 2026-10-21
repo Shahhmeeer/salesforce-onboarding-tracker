@@ -617,11 +617,12 @@ Class: `OnboardingStageTracker`, declared `without sharing`.
 
 When an onboarding is created:
 
-- Create a stage row for Kickoff Scheduled: `First_Reached__c` = now, `Current_Visit_Started__c` = now, `Visit_Count__c` = 1, `Completed_Visit_Days__c` = 0.
+- Create a stage row for the onboarding's `Stage__c` (normally Kickoff Scheduled, which the defaults and `Start_At_Kickoff` enforce): `First_Reached__c` = now, `Current_Visit_Started__c` = now, `Visit_Count__c` = 1, `Completed_Visit_Days__c` = 0. Using the record's own stage keeps the history right if an onboarding is inserted at a later stage with validation rules bypassed.
 
 When an onboarding's stage changes from X to Y:
 
-1. **Close X:** add `(now - Current_Visit_Started__c)` in days to `Completed_Visit_Days__c`. Clear `Current_Visit_Started__c`.
+0. **Skip if already recorded:** if Y's row already has an open visit (`Current_Visit_Started__c` set), this change was already processed in this transaction (for example when a roll-up recalculation re-saves the onboarding), so nothing is written. The guard reads the rows rather than a static flag because a static flag would block legitimate repeats in one transaction (Implementation to QA twice) and is not reset when a partly successful bulk save is rolled back and retried.
+1. **Close X:** add `(now - Current_Visit_Started__c)` in days to `Completed_Visit_Days__c`. Clear `Current_Visit_Started__c`. If X has no row or no open visit (for example an onboarding loaded with the kill switch on), there is nothing to close and only Y is opened.
 2. **Open Y:**
    - If Y has no row yet: create it with `First_Reached__c` = now, `Visit_Count__c` = 1, `Current_Visit_Started__c` = now.
    - If Y already has a row (the onboarding was here before): add 1 to `Visit_Count__c`, set `Current_Visit_Started__c` = now. **Never touch `First_Reached__c`.**
@@ -963,6 +964,8 @@ Each test asserts behaviour, not just coverage.
 | A25 | How exactly does the alphabetical tie-break compare names?               | Ignoring case. If two CSMs have the same name, the lower user Id wins, so the result never depends on query order.                                                                                                                                                                                                                                                                                                                                    |
 | A26 | Deviation from the S4 issue: permission set on CSM test users            | The S4 issue said not to assign permission sets to CSM test users because they would be created in S6. They have existed since step 1 (A20), so `TestDataFactory.createCsmUsers` assigns `Onboarding_CSM`.                                                                                                                                                                                                                                            |
 | A27 | Deviation from the S4 issue: licence of CSM test users                   | The S4 issue said CSM test users use the Standard Platform User profile. They may use either licence: free Platform licences first, then Standard User (13.1), so tests pass in any org, including a scratch org with only 3 Platform licences. Assignment does not depend on the licence, and A16 already says production CSMs would likely have full licences.                                                                                      |
+| A28 | How precise are stage durations?                                         | Visit days are worked out to the millisecond and the running total in `Completed_Visit_Days__c` is rounded to 2 decimals each time a visit closes. Any rounding error stays below 0.005 days per visit.                                                                                                                                                                                                                                               |
+| A29 | What is a stage row's Name?                                              | The stage's picklist label (e.g. "QA / Review"), not the API value, in the language of the user whose save created the row. Falls back to the API value if the label cannot be found.                                                                                                                                                                                                                                                                 |
 
 ---
 
@@ -975,6 +978,7 @@ Each test asserts behaviour, not just coverage.
 - Backlog onboardings are not automatically assigned when capacity frees up.
 - When a lost deal is won again, its Cancelled onboarding is reactivated with the same owner and no capacity check. That can put the CSM over their limit, and the onboarding stays with them even if they have been deactivated. Managers rebalance by hand (A21).
 - "Days" are calendar days, not business days.
+- An onboarding loaded with the kill switch on gets no stage rows, so it has no history for the stages it passed through before automation was on. Tracking starts with its first stage change after that (section 8.1).
 - The CSM load report shows counts but does not show them next to each CSM's capacity in one view.
 - The stage order lives in validation rules. That is right for one process, but would need to change for several (section 17).
 
