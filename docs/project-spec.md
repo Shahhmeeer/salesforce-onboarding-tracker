@@ -589,15 +589,15 @@ Capacities: Shahmeer 5, A 4, B 4, C 10. Everyone starts at 0. 24 onboardings arr
 
 ### 7.4 Edge cases
 
-| Case                                                   | Behaviour                                                                                        |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| No CSM Capacity records at all                         | Everything goes to the backlog.                                                                  |
-| Backlog queue missing (bad setup)                      | Records fail with a clear error: "Onboarding Backlog queue not found. Check Onboarding Setting." |
-| Admin lowers a CSM's capacity below their current load | Nobody is reassigned. That CSM just gets no new onboardings until they drop below the new limit. |
-| CSM deactivated in Salesforce                          | Excluded from assignment. Their existing onboardings stay with them until a manager reassigns.   |
-| Manager reassigns an onboarding by hand                | Counts update automatically on the next assignment, because counts are live.                     |
-| Onboarding created manually by a user                  | Still auto-assigned. Managers can reassign after.                                                |
-| Deal reopened and re-won                               | The existing onboarding is reactivated. No new assignment, it stays with its owner.              |
+| Case                                                   | Behaviour                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No CSM Capacity records at all                         | Everything goes to the backlog.                                                                                                                                                                                                                                                      |
+| Backlog queue missing (bad setup)                      | Records that overflow fail with the `Onboarding_Backlog_Queue_Missing` label: "Every CSM is at capacity and the backlog queue {0} could not be found. Ask your Salesforce admin to create the queue or fix the Onboarding Setting." ({0} is the queue name from Onboarding Setting.) |
+| Admin lowers a CSM's capacity below their current load | Nobody is reassigned. That CSM just gets no new onboardings until they drop below the new limit.                                                                                                                                                                                     |
+| CSM deactivated in Salesforce                          | Excluded from assignment. Their existing onboardings stay with them until a manager reassigns.                                                                                                                                                                                       |
+| Manager reassigns an onboarding by hand                | Counts update automatically on the next assignment, because counts are live.                                                                                                                                                                                                         |
+| Onboarding created manually by a user                  | Still auto-assigned. Managers can reassign after.                                                                                                                                                                                                                                    |
+| Deal reopened and re-won                               | The existing onboarding is reactivated. No new assignment, it stays with its owner.                                                                                                                                                                                                  |
 
 ### 7.5 Bulk and concurrency
 
@@ -605,6 +605,7 @@ Capacities: Shahmeer 5, A 4, B 4, C 10. Everyone starts at 0. 24 onboardings arr
 - If Data Loader runs batches in parallel, two transactions could try to assign at the same time. The `FOR UPDATE` lock makes the second one wait until the first commits, so it sees the first one's assignments in its count. Assignment never puts a CSM over capacity. (Reactivating a Cancelled onboarding can, because it keeps its owner without a capacity check; see A21.)
 - Salesforce waits about 10 seconds for a lock before failing with `UNABLE_TO_LOCK_ROW`. Our locked section is two queries and an in-memory loop, so the lock is held very briefly. Still, the README recommends **serial mode** for very large quarter-end loads. This is listed as a known limitation.
 - The lock cannot be fully proven in a unit test (tests run in one transaction). It is explained in the write-up.
+- Assignment and the backlog alert run once per **trigger run**, and Salesforce runs a trigger on at most 200 records at a time. A Data Loader or API batch of up to 200 is one transaction, so it gets one lock, one count and at most one alert. An Apex insert of more than 200 records in one transaction runs the trigger once per 200-record chunk, so it locks and counts once per chunk and sends one alert per chunk that had backlog records. Counts are not cached between chunks, so each chunk sees the earlier chunks' assignments.
 
 ---
 
@@ -836,12 +837,13 @@ One component per report above.
 
 `TestDataFactory` (shared by all tests, so it earns its own class):
 
-- Creates CSM users with the Standard Platform User profile and the `Onboarding_CSM` permission set, looked up by name.
+- Creates CSM users with the `Onboarding_CSM` permission set (assigned in the same `System.runAs` block as the user insert, so there is no mixed-DML error), with profiles looked up by name. It uses free Salesforce Platform licences first (Standard Platform User), then Standard User (Salesforce licence) for the rest, so tests do not depend on an org's licence counts. If there are not enough licences of either kind, it fails before inserting anything, with an error naming how many are needed and how many are free. FirstName is left blank, so the user's Name is the last name the test passes in.
+- No test creates both four CSMs and the sales user. Sales-user tests create no CSM users; assignment tests run as the admin.
 - Creates one sales user with the Standard User profile and no onboarding permission set, to prove automation works for someone with no onboarding access.
 - Creates CSM Capacity records, Accounts and Opportunities.
 - Inserts the `Automation_Bypass__c` org default with everything off, so tests never depend on org data.
 
-**To verify first:** whether creating users in a test is affected by license counts. The 200-record test creates only about 4 CSM users, not 200. With 6 free Platform licenses this should not be a problem either way, but check it before building other tests on it.
+**Checked in S4:** creating users in a test does use licences. The dev org has 6 Platform licences, but a Developer edition scratch org has only 3, so tests that need four CSMs would fail there with Platform users only. That is why the factory falls back to Standard User (see A27).
 
 ### 13.2 Test classes and cases
 
@@ -955,6 +957,12 @@ Each test asserts behaviour, not just coverage.
 | A19 | How is `CSM_Capacity__c.User__c` made required?                          | Optional lookup at field level, required through the `Require_User` validation rule. Salesforce rejects a required lookup to User.                                                                                                                                                                                                                                                                                                                    |
 | A20 | Why are permission sets built in step 1 rather than step 6?              | Without field-level security, no user, admins included, can read or write the new fields. That blocked the step 1 smoke test of formulas and the roll-up (anonymous Apex enforces FLS and rejects system mode). So `Onboarding_CSM` and `Onboarding_Manager` are created in step 1 with object and field access. App, tab and report access is added later. `Onboarding_Manager` is assigned to the admin, who is the CS manager in the dev org (A7). |
 | A21 | Does reactivating a Cancelled onboarding respect capacity?               | No. It keeps its owner and is not checked against capacity, so it can put that CSM over their limit. It stays with the owner even if they have been deactivated. Managers rebalance by hand (section 16).                                                                                                                                                                                                                                             |
+| A22 | What if one user has two active CSM Capacity records?                    | Only possible if the flow was bypassed, because `User_Key__c` is unique. Assignment counts the user once and uses the smaller maximum, so they are never over-assigned.                                                                                                                                                                                                                                                                               |
+| A23 | What if the CS Managers group or the notification type is missing?       | The backlog alert is skipped and the save is not blocked. The onboardings are already safe in the backlog queue.                                                                                                                                                                                                                                                                                                                                      |
+| A24 | What if an onboarding is inserted with an owner already set?             | The owner is overwritten on insert. Every new onboarding goes through assignment (A12); managers can reassign after.                                                                                                                                                                                                                                                                                                                                  |
+| A25 | How exactly does the alphabetical tie-break compare names?               | Ignoring case. If two CSMs have the same name, the lower user Id wins, so the result never depends on query order.                                                                                                                                                                                                                                                                                                                                    |
+| A26 | Deviation from the S4 issue: permission set on CSM test users            | The S4 issue said not to assign permission sets to CSM test users because they would be created in S6. They have existed since step 1 (A20), so `TestDataFactory.createCsmUsers` assigns `Onboarding_CSM`.                                                                                                                                                                                                                                            |
+| A27 | Deviation from the S4 issue: licence of CSM test users                   | The S4 issue said CSM test users use the Standard Platform User profile. They may use either licence: free Platform licences first, then Standard User (13.1), so tests pass in any org, including a scratch org with only 3 Platform licences. Assignment does not depend on the licence, and A16 already says production CSMs would likely have full licences.                                                                                      |
 
 ---
 
@@ -963,6 +971,7 @@ Each test asserts behaviour, not just coverage.
 ### Limitations
 
 - The row lock prevents over-assignment between parallel loads, but very large parallel loads can hit lock timeouts. Serial mode is recommended.
+- An Apex insert of more than 200 onboardings in one transaction sends one backlog alert per 200-record chunk, not one in total (section 7.5).
 - Backlog onboardings are not automatically assigned when capacity frees up.
 - When a lost deal is won again, its Cancelled onboarding is reactivated with the same owner and no capacity check. That can put the CSM over their limit, and the onboarding stays with them even if they have been deactivated. Managers rebalance by hand (A21).
 - "Days" are calendar days, not business days.
