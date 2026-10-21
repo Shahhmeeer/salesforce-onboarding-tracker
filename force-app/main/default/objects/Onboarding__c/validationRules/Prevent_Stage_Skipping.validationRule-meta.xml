@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prevent_Stage_Skipping</fullName>
+    <active>true</active>
+    <description
+  >Blocks moving forward more than one stage in a single save. Moving back to an earlier stage is allowed (until Go Live).</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+ISCHANGED(Stage__c) &amp;&amp;
+CASE(TEXT(Stage__c),
+    "Kickoff_Scheduled", 1,
+    "Gathering_Info", 2,
+    "Implementation", 3,
+    "QA_Review", 4,
+    "Go_Live", 5,
+    "Post_Launch_Review", 6,
+    0
+)
+&gt;
+CASE(TEXT(PRIORVALUE(Stage__c)),
+    "Kickoff_Scheduled", 1,
+    "Gathering_Info", 2,
+    "Implementation", 3,
+    "QA_Review", 4,
+    "Go_Live", 5,
+    "Post_Launch_Review", 6,
+    0
+) + 1</errorConditionFormula>
+    <errorDisplayField>Stage__c</errorDisplayField>
+    <errorMessage
+  >Move one stage at a time. Complete the current stage before moving on.</errorMessage>
+</ValidationRule>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prevent_Moving_Back_After_Go_Live</fullName>
+    <active>true</active>
+    <description
+  >Once an onboarding has reached Go Live or Post-Launch Review it can only move forward, so launch dates and durations stay trustworthy.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+ISCHANGED(Stage__c) &amp;&amp;
+CASE(TEXT(PRIORVALUE(Stage__c)),
+    "Kickoff_Scheduled", 1,
+    "Gathering_Info", 2,
+    "Implementation", 3,
+    "QA_Review", 4,
+    "Go_Live", 5,
+    "Post_Launch_Review", 6,
+    0
+) &gt;= 5 &amp;&amp;
+CASE(TEXT(Stage__c),
+    "Kickoff_Scheduled", 1,
+    "Gathering_Info", 2,
+    "Implementation", 3,
+    "QA_Review", 4,
+    "Go_Live", 5,
+    "Post_Launch_Review", 6,
+    0
+)
+&lt;
+CASE(TEXT(PRIORVALUE(Stage__c)),
+    "Kickoff_Scheduled", 1,
+    "Gathering_Info", 2,
+    "Implementation", 3,
+    "QA_Review", 4,
+    "Go_Live", 5,
+    "Post_Launch_Review", 6,
+    0
+)</errorConditionFormula>
+    <errorDisplayField>Stage__c</errorDisplayField>
+    <errorMessage
+  >This onboarding has gone live. It can no longer move back to an earlier stage.</errorMessage>
+</ValidationRule>

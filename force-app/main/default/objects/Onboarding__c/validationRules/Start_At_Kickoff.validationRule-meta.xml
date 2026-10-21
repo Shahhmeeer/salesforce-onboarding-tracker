@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Start_At_Kickoff</fullName>
+    <active>true</active>
+    <description
+  >Blocks creating an onboarding at any stage other than Kickoff Scheduled, so every onboarding goes through the full process.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+ISNEW() &amp;&amp;
+NOT(ISPICKVAL(Stage__c, "Kickoff_Scheduled"))</errorConditionFormula>
+    <errorDisplayField>Stage__c</errorDisplayField>
+    <errorMessage>New onboardings start at Kickoff Scheduled.</errorMessage>
+</ValidationRule>

@@ -39,4 +39,22 @@
         <value
     >The onboarding for this won deal could not be created: {0}. Fix the problem and save again, or ask your Salesforce admin for help.</value>
     </labels>
+    <labels>
+        <fullName>Onboarding_Reason_Deal_Lost</fullName>
+        <categories>Onboarding</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription
+    >Status reason set by automation when the deal is closed as lost.</shortDescription>
+        <value>Deal closed as lost</value>
+    </labels>
+    <labels>
+        <fullName>Onboarding_Reason_Deal_Reopened</fullName>
+        <categories>Onboarding</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription
+    >Status reason set by automation when Sales reopens a won deal.</shortDescription>
+        <value>Deal reopened by Sales</value>
+    </labels>
 </CustomLabels>

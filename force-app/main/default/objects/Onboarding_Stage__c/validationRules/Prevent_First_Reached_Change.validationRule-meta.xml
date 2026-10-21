@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prevent_First_Reached_Change</fullName>
+    <active>true</active>
+    <description
+  >Protects First Reached once it is set, so stage history and Go Live dates cannot be rewritten.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+ISCHANGED(First_Reached__c) &amp;&amp;
+NOT(ISBLANK(PRIORVALUE(First_Reached__c)))</errorConditionFormula>
+    <errorDisplayField>First_Reached__c</errorDisplayField>
+    <errorMessage
+  >The date a stage was first reached is a historical record and cannot be changed.</errorMessage>
+</ValidationRule>
