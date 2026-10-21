@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <applicationVisibilities>
+        <application>Revinfinity_Onboarding_Tracker</application>
+        <visible>true</visible>
+    </applicationVisibilities>
     <description
-  >For CSMs doing day-to-day onboarding work. Read and edit onboardings (no delete), read stage history and accounts. Fields set by automation are read only.</description>
+  >For CSMs doing day-to-day onboarding work. Read and edit onboardings (no delete), read stage history and accounts. Fields set by automation are read only. Gives the Revinfinity Onboarding Tracker app and the Onboardings and Accounts tabs.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Onboarding CSM</label>
     <fieldPermissions>
@@ -146,4 +150,12 @@
         <object>Onboarding_Stage__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <tabSettings>
+        <tab>Onboarding__c</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
+    <tabSettings>
+        <tab>standard-Account</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
 </PermissionSet>
