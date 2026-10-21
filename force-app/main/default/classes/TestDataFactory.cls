@@ -1,6 +1,7 @@
 /**
  * Shared test data: Accounts, Opportunities (open, won or lost), the Automation_Bypass__c org
- * default with every switch off, and a sales user with no onboarding access.
+ * default with every switch off, a sales user with no onboarding access, CSM users with their
+ * capacity records, and existing onboardings that make up a CSM's current load.
  *
  * Opportunity stages are looked up by IsWon / IsClosed, never by name, so tests keep working if an
  * admin renames stages. build* methods return unsaved records; create* methods insert them.
@@ -10,6 +11,10 @@
 @IsTest
 public without sharing class TestDataFactory {
   private static final String SALES_PROFILE_NAME = 'Standard User';
+  private static final String PLATFORM_PROFILE_NAME = 'Standard Platform User';
+  private static final String PLATFORM_LICENCE = 'Salesforce Platform';
+  private static final String SALESFORCE_LICENCE = 'Salesforce';
+  private static final String CSM_PERMISSION_SET = 'Onboarding_CSM';
 
   private static Map<String, String> stageNames;
 
@@ -156,5 +161,190 @@ public without sharing class TestDataFactory {
       insert as system user;
     }
     return user;
+  }
+
+  /**
+   * CSM users with Onboarding_CSM, one per last name, in the order given. FirstName is left blank so
+   * User.Name is the last name and the alphabetical tie-break follows the names passed in.
+   *
+   * Free Salesforce Platform licences are used first, then Standard User (Salesforce licence) for
+   * the rest, so tests do not depend on how many licences an org has. Assignment does not depend
+   * on the licence. Throws LicenceException, before inserting anything, if there are not enough.
+   */
+  public static List<User> createCsmUsers(
+    Integer count,
+    List<String> lastNames
+  ) {
+    if (lastNames != null && lastNames.size() != count) {
+      throw new IllegalArgumentException(
+        'createCsmUsers needs one last name per user: got ' +
+          lastNames.size() +
+          ' names for ' +
+          count +
+          ' users.'
+      );
+    }
+    Map<String, Integer> free = freeLicences();
+    Integer freePlatform = free.get(PLATFORM_LICENCE);
+    Integer freeSalesforce = free.get(SALESFORCE_LICENCE);
+    if (count > freePlatform + freeSalesforce) {
+      throw new LicenceException(
+        'createCsmUsers needs ' +
+          count +
+          ' user licences but only ' +
+          freePlatform +
+          ' Salesforce Platform and ' +
+          freeSalesforce +
+          ' Salesforce licences are free.'
+      );
+    }
+
+    Map<String, Id> profileIds = new Map<String, Id>();
+    // System mode: profile lookup for test setup.
+    for (Profile profile : [
+      SELECT Id, Name
+      FROM Profile
+      WHERE Name IN (:PLATFORM_PROFILE_NAME, :SALES_PROFILE_NAME)
+      WITH SYSTEM_MODE
+    ]) {
+      profileIds.put(profile.Name, profile.Id);
+    }
+    // System mode: permission set lookup for test setup.
+    Id csmPermissionSetId = [
+      SELECT Id
+      FROM PermissionSet
+      WHERE Name = :CSM_PERMISSION_SET
+      WITH SYSTEM_MODE
+      LIMIT 1
+    ]
+    .Id;
+
+    List<User> users = new List<User>();
+    for (Integer i = 0; i < count; i++) {
+      String unique = String.valueOf(Crypto.getRandomInteger()).remove('-');
+      String profileName = i < freePlatform
+        ? PLATFORM_PROFILE_NAME
+        : SALES_PROFILE_NAME;
+      users.add(
+        new User(
+          ProfileId = profileIds.get(profileName),
+          LastName = lastNames == null ? 'CSM ' + i : lastNames[i],
+          Alias = 'csm' + unique.left(5),
+          Email = 'csm@onboarding-tracker.test',
+          Username = 'csm.' + i + '.' + unique + '@onboarding-tracker.test',
+          EmailEncodingKey = 'UTF-8',
+          LanguageLocaleKey = 'en_US',
+          LocaleSidKey = 'en_US',
+          TimeZoneSidKey = 'Europe/London'
+        )
+      );
+    }
+    // Users and permission set assignments are setup DML; running them as the current user keeps
+    // them apart from the test's other DML (no MIXED_DML_OPERATION).
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+      // System mode: test setup.
+      insert as system users;
+      List<PermissionSetAssignment> assignments = new List<PermissionSetAssignment>();
+      for (User user : users) {
+        assignments.add(
+          new PermissionSetAssignment(
+            AssigneeId = user.Id,
+            PermissionSetId = csmPermissionSetId
+          )
+        );
+      }
+      // System mode: test setup.
+      insert as system assignments;
+    }
+    return users;
+  }
+
+  // Free = total - used, for the two licences CSM users can have.
+  @TestVisible
+  private static Map<String, Integer> freeLicences() {
+    Map<String, Integer> free = new Map<String, Integer>{
+      PLATFORM_LICENCE => 0,
+      SALESFORCE_LICENCE => 0
+    };
+    // System mode: licence counts for test setup.
+    for (UserLicense licence : [
+      SELECT Name, TotalLicenses, UsedLicenses
+      FROM UserLicense
+      WHERE Name IN (:PLATFORM_LICENCE, :SALESFORCE_LICENCE)
+      WITH SYSTEM_MODE
+    ]) {
+      free.put(
+        licence.Name,
+        Math.max(0, licence.TotalLicenses - licence.UsedLicenses)
+      );
+    }
+    return free;
+  }
+
+  public static CSM_Capacity__c createCapacity(User user, Integer max) {
+    CSM_Capacity__c capacity = new CSM_Capacity__c(
+      User__c = user.Id,
+      Max_Active_Onboardings__c = max
+    );
+    // System mode: test setup.
+    insert as system capacity;
+    return capacity;
+  }
+
+  // Unsaved onboardings, one per new open Opportunity (each Opportunity can have only one).
+  public static List<Onboarding__c> buildOnboardings(
+    Id accountId,
+    Integer count
+  ) {
+    List<Onboarding__c> onboardings = new List<Onboarding__c>();
+    for (Opportunity opp : createOpportunities(accountId, count, openStage())) {
+      onboardings.add(new Onboarding__c(Opportunity__c = opp.Id));
+    }
+    return onboardings;
+  }
+
+  /**
+   * Existing load: onboardings already owned by ownerId at the given stage and status. The trigger
+   * and validation rules are switched off for this insert only, so the records skip assignment
+   * and can start at any stage. They share one open Opportunity, which is fine with the trigger
+   * off because Opportunity_Key__c stays blank.
+   */
+  public static List<Onboarding__c> createExistingOnboardings(
+    Id accountId,
+    Id ownerId,
+    Integer count,
+    String stage,
+    String status
+  ) {
+    Opportunity opp = createOpportunity(accountId, openStage());
+    List<Onboarding__c> onboardings = new List<Onboarding__c>();
+    for (Integer i = 0; i < count; i++) {
+      onboardings.add(
+        new Onboarding__c(
+          Name = 'Existing ' + status + ' ' + i,
+          Opportunity__c = opp.Id,
+          Account__c = accountId,
+          OwnerId = ownerId,
+          Stage__c = stage,
+          Status__c = status,
+          Status_Reason__c = status == 'Active' ? null : 'Test setup'
+        )
+      );
+    }
+    Automation_Bypass__c setting = Automation_Bypass__c.getOrgDefaults();
+    setting.Bypass_Validation_Rules__c = true;
+    // System mode: admin configuration, test setup.
+    update as system setting;
+    TriggerHandler.bypass('OnboardingTriggerHandler');
+    // System mode: test setup.
+    insert as system onboardings;
+    TriggerHandler.clearBypass('OnboardingTriggerHandler');
+    setting.Bypass_Validation_Rules__c = false;
+    // System mode: admin configuration, test setup.
+    update as system setting;
+    return onboardings;
+  }
+
+  public class LicenceException extends Exception {
   }
 }
