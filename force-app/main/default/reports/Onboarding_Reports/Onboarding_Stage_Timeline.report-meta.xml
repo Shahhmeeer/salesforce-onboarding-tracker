@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Report xmlns="http://soap.sforce.com/2006/04/metadata">
+    <columns>
+        <field>Onboarding__c.Onboarding_Stages__r$Stage__c</field>
+    </columns>
+    <columns>
+        <field>Onboarding__c.Onboarding_Stages__r$First_Reached__c</field>
+    </columns>
+    <columns>
+        <field>Onboarding__c.Onboarding_Stages__r$Days_In_Stage__c</field>
+    </columns>
+    <columns>
+        <field>Onboarding__c.Onboarding_Stages__r$Visit_Count__c</field>
+    </columns>
+    <description
+  >Each onboarding&apos;s stage history: one row per stage reached, in the order first reached, with total days in the stage (including the current visit) and visit count.</description>
+    <format>Summary</format>
+    <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
+        <field>Onboarding__c$Name</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <name>Onboarding Stage Timeline</name>
+    <params>
+        <name>co</name>
+        <value>1</value>
+    </params>
+    <reportType>Onboardings_with_Stages__c</reportType>
+    <scope>organization</scope>
+    <showDetails>true</showDetails>
+    <showGrandTotal>true</showGrandTotal>
+    <showSubTotals>true</showSubTotals>
+    <sortColumn>Onboarding__c.Onboarding_Stages__r$First_Reached__c</sortColumn>
+    <sortOrder>Asc</sortOrder>
+    <timeFrameFilter>
+        <dateColumn>Onboarding__c$CreatedDate</dateColumn>
+        <interval>INTERVAL_CUSTOM</interval>
+    </timeFrameFilter>
+</Report>
