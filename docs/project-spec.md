@@ -123,7 +123,9 @@ Developer Edition Dev Hubs have small daily and active scratch-org limits. We on
 | Admin (the developer) | Salesforce          | System admin and member of the `CS_Managers` group. Not a CSM.                                    |
 | 4 CSM users           | Salesforce Platform | CSMs that receive assignments. Profile: Standard Platform User. Permission set: `Onboarding_CSM`. |
 
-Demo capacities: 30, 40, 40, 60 (total 170). Bulk-closing 200 deals then shows fair distribution and 30 onboardings overflowing to the backlog.
+Demo capacities: 5, 7, 7, 10 (total 29). Bulk-closing 200 deals then shows fair distribution and 171 onboardings overflowing to the backlog.
+
+Demo users use the same time zone as the admin user, so date formulas such as Days To Go-Live match across users.
 
 ### 3.5 Repository
 
@@ -920,7 +922,7 @@ Each test asserts behaviour, not just coverage.
 
 1. Assign `Onboarding_Manager` to yourself.
 2. Add yourself to the `CS_Managers` public group. (Group membership of users cannot be deployed as metadata.)
-3. Create 4 CSM users: license Salesforce Platform, profile Standard Platform User. Assign `Onboarding_CSM` to each.
+3. Create 4 CSM users: license Salesforce Platform, profile Standard Platform User, same time zone as the admin user. Assign `Onboarding_CSM` to each.
 4. Run `scripts/apex/seed-csm-capacity.apex`. It finds every user with `Onboarding_CSM` and creates a CSM Capacity record for each, with demo limits. No usernames are hardcoded.
 5. Optional: run `scripts/apex/seed-demo-data.apex` to create a few onboardings at different stages for the record page demo.
 
@@ -930,7 +932,7 @@ Each test asserts behaviour, not just coverage.
 - Load them with `sf data import bulk --sobject Opportunity --file data/demo-opportunities.csv --target-org <alias> --wait 10`.
 - Export their Ids, then update all 200 to Closed Won in one job with `sf data update bulk --sobject Opportunity --file data/demo-opportunities-close.csv --target-org <alias> --wait 10`. The first column of that CSV must be `Id`, the second `StageName` with the value `Closed Won`. Data Loader works just as well and is more familiar on video.
 - Before relying on any command, run it with `--help` once to confirm the flags on the installed CLI version.
-- Show: 170 assigned across 4 CSMs in proportion to their free capacity, 30 in the backlog, and the managers' notification.
+- Show: 29 assigned across 4 CSMs in proportion to their free capacity, 171 in the backlog, and the managers' notification.
 
 ---
 
@@ -979,6 +981,7 @@ Each test asserts behaviour, not just coverage.
 
 - The row lock prevents over-assignment between parallel loads, but very large parallel loads can hit lock timeouts. Serial mode is recommended.
 - An Apex insert of more than 200 onboardings in one transaction sends one backlog alert per 200-record chunk, not one in total (section 7.5).
+- Bulk loads over 200 records send one backlog alert per 200-record batch.
 - Backlog onboardings are not automatically assigned when capacity frees up.
 - When a lost deal is won again, its Cancelled onboarding is reactivated with the same owner and no capacity check. That can put the CSM over their limit, and the onboarding stays with them even if they have been deactivated. Managers rebalance by hand (A21).
 - "Days" are calendar days, not business days.
