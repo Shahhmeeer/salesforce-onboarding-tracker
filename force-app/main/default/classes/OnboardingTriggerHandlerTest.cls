@@ -219,6 +219,39 @@ private class OnboardingTriggerHandlerTest {
   }
 
   @IsTest
+  static void updateWithoutNameInputChangesRunsNoNameQuery() {
+    Opportunity opp = TestDataFactory.createOpportunity(
+      accountId(),
+      TestDataFactory.wonStage()
+    );
+    Onboarding__c onboarding = onboardingFor(opp.Id);
+    String expected = onboarding.Name;
+
+    Test.startTest();
+    onboarding.Gathering_Info_Notes__c = 'Notes only';
+    Integer before = Limits.getQueries();
+    // System mode: acts as the admin.
+    update as system onboarding;
+    Integer forNotes = Limits.getQueries() - before;
+    String nameAfterNotes = reload(onboarding.Id).Name;
+
+    onboarding.Target_Go_Live_Date__c = Date.newInstance(2027, 3, 1);
+    before = Limits.getQueries();
+    // System mode: acts as the admin.
+    update as system onboarding;
+    Integer forDate = Limits.getQueries() - before;
+    Test.stopTest();
+
+    Assert.areEqual(0, forNotes, 'No name input changed: no Account lookup');
+    Assert.areEqual(expected, nameAfterNotes, 'Name unchanged');
+    Assert.areEqual(1, forDate, 'Target date changed: 1 Account lookup');
+    Assert.areEqual(
+      ACCOUNT_NAME + ' - Go Live 2027-03-01',
+      reload(onboarding.Id).Name
+    );
+  }
+
+  @IsTest
   static void manualNameEditIsOverwritten() {
     Opportunity opp = TestDataFactory.createOpportunity(
       accountId(),

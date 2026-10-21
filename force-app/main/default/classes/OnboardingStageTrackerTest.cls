@@ -380,8 +380,9 @@ private class OnboardingStageTrackerTest {
     Integer dml = Limits.getDmlStatements() - dmlBefore;
     Test.stopTest();
 
-    // Queries: the handler's Account lookup for the Name, and the tracker's one query for rows.
-    Assert.areEqual(2, queries, 'Queries for the whole update');
+    // Queries: only the tracker's one query for rows. No name input changed, so the handler does
+    // not look up the Account.
+    Assert.areEqual(1, queries, 'Queries for the whole update');
     // DML: the update itself, and the tracker's one upsert.
     Assert.areEqual(2, dml, 'DML statements for the whole update');
 

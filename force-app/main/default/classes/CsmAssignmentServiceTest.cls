@@ -573,10 +573,10 @@ private class CsmAssignmentServiceTest {
     Test.stopTest();
 
     // Per insert: 1 Opportunity lookup for defaults and names, then assignment's lock and count.
-    // The Kickoff stage row changes the Kickoff Reached roll-up, which saves the onboardings again:
-    // that update rebuilds the Name with 1 Account lookup.
-    Assert.areEqual(4, forOne, 'Queries to insert 1');
-    Assert.areEqual(4, forMany, 'Queries to insert 200');
+    // The Kickoff Reached roll-up saves the onboardings again, but that update changes no name
+    // input, so it queries nothing.
+    Assert.areEqual(3, forOne, 'Queries to insert 1');
+    Assert.areEqual(3, forMany, 'Queries to insert 200');
   }
 
   @IsTest

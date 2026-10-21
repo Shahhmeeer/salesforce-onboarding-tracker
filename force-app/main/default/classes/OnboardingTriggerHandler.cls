@@ -5,7 +5,9 @@
  * Before insert: copy Opportunity_Key__c and Account__c from the Opportunity, default the target
  * go-live date, Stage and Status, stamp Current_Stage_Entered__c, build the Name, then assign the
  * owner through CsmAssignmentService (spec 7).
- * Before update: re-stamp Current_Stage_Entered__c on a stage change and rebuild the Name.
+ * Before update: re-stamp Current_Stage_Entered__c on a stage change, and rebuild the Name only
+ * when one of its inputs changed (Name, Account, Opportunity, target date). Updates that change
+ * neither, such as the save Salesforce makes when a roll-up recalculates, do no work and no queries.
  * After insert: send one alert to CS managers if any records went to the backlog queue.
  * After insert / after update: stage rows through OnboardingStageTracker (spec 8).
  *
@@ -65,12 +67,30 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     Map<Id, Onboarding__c> oldMap = (Map<Id, Onboarding__c>) Trigger.oldMap;
     Datetime now = Datetime.now();
 
+    List<Onboarding__c> renamed = new List<Onboarding__c>();
     for (Onboarding__c onboarding : onboardings) {
-      if (onboarding.Stage__c != oldMap.get(onboarding.Id).Stage__c) {
+      Onboarding__c old = oldMap.get(onboarding.Id);
+      if (onboarding.Stage__c != old.Stage__c) {
         onboarding.Current_Stage_Entered__c = now;
       }
+      if (nameInputsChanged(onboarding, old)) {
+        renamed.add(onboarding);
+      }
     }
-    rebuildNames(onboardings, new Map<Id, Opportunity>());
+    if (!renamed.isEmpty()) {
+      rebuildNames(renamed, new Map<Id, Opportunity>());
+    }
+  }
+
+  // The fields the Name is built from, plus the Name itself so a hand edit is put back.
+  private static Boolean nameInputsChanged(
+    Onboarding__c onboarding,
+    Onboarding__c old
+  ) {
+    return onboarding.Name != old.Name ||
+      onboarding.Account__c != old.Account__c ||
+      onboarding.Opportunity__c != old.Opportunity__c ||
+      onboarding.Target_Go_Live_Date__c != old.Target_Go_Live_Date__c;
   }
 
   protected override void afterInsert() {
