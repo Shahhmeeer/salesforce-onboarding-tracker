@@ -241,6 +241,46 @@ private class OnboardingStageTrackerTest {
     );
   }
 
+  // Spec A28: three fractional visits must total the rounded sum of the raw durations. Rounding the
+  // running total on every visit would give 1.00 + 2.00 + 3.00 = 6.00 instead of 6.01.
+  // Durations are whole seconds because Date/Time fields store whole seconds.
+  @IsTest
+  static void repeatVisitsDoNotDriftFromRounding() {
+    OnboardingStageTracker.nowOverride = MAY_1;
+    Onboarding__c onboarding = createOnboarding();
+    // About 1.004, 2.004 and 3.004 days; each rounds down on its own.
+    List<Integer> visitSeconds = new List<Integer>{ 86745, 173145, 259545 };
+
+    Test.startTest();
+    moveTo(onboarding.Id, 'Gathering_Info', MAY_3);
+    Datetime at = MAY_5;
+    Integer totalSeconds = 0;
+    for (Integer seconds : visitSeconds) {
+      moveTo(onboarding.Id, 'Implementation', at);
+      at = at.addSeconds(seconds);
+      moveTo(onboarding.Id, 'QA_Review', at);
+      at = at.addDays(1);
+      totalSeconds += seconds;
+    }
+    Test.stopTest();
+
+    Decimal rawTotal = Decimal.valueOf(totalSeconds) / 86400;
+    Onboarding_Stage__c implementation = rowsByStage(onboarding.Id)
+      .get('Implementation');
+    Assert.areEqual(3, implementation.Visit_Count__c);
+    Assert.isTrue(
+      Math.abs(implementation.Completed_Visit_Days__c - rawTotal) < 0.000001,
+      'Stored total is the unrounded sum of the visits: ' +
+      implementation.Completed_Visit_Days__c
+    );
+    Assert.areEqual(
+      rawTotal.setScale(2),
+      implementation.Days_In_Stage__c,
+      'Displayed total is the raw sum rounded once'
+    );
+    Assert.areEqual(6.01, implementation.Days_In_Stage__c);
+  }
+
   private static void assertRow(
     Onboarding_Stage__c row,
     Datetime firstReached,
