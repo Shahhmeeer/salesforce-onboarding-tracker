@@ -46,3 +46,7 @@ $RECYCLE.BIN/
 **/__pycache__/
 **/.venv/
 **/venv/
+
+# Bulk demo files with org-specific Ids (built by scripts/build-close-csv.mjs)
+data/demo-opportunities-ids.csv
+data/demo-opportunities-close.csv

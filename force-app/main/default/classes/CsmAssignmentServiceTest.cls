@@ -310,6 +310,23 @@ private class CsmAssignmentServiceTest {
   }
 
   @IsTest
+  static void oneBacklogRecordGetsASingularAlertBody() {
+    List<Onboarding__c> onboardings = insertNew(1);
+
+    Assert.areEqual(1, countFor(countsByOwner(onboardings), backlogQueueId()));
+    OnboardingTriggerHandler.BacklogAlert alert = OnboardingTriggerHandler.lastBacklogAlert;
+    Assert.areEqual(1, alert.backlogCount, 'Body count');
+    Assert.isTrue(
+      alert.body.startsWith('1 new onboarding went'),
+      'Singular body: ' + alert.body
+    );
+    Assert.isTrue(
+      alert.body.endsWith('assign it.'),
+      'Singular body: ' + alert.body
+    );
+  }
+
+  @IsTest
   static void noCapacityRecordsSendsEverythingToBacklogWithOneAlert() {
     Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
@@ -324,8 +341,23 @@ private class CsmAssignmentServiceTest {
     OnboardingTriggerHandler.BacklogAlert alert = OnboardingTriggerHandler.lastBacklogAlert;
     Assert.areEqual(3, alert.backlogCount, 'Body count');
     Assert.isTrue(
-      new Map<Id, Onboarding__c>(onboardings).containsKey(alert.targetId),
-      'Target is one of the backlog records'
+      alert.body.startsWith('3 new onboardings went'),
+      'Plural body: ' + alert.body
+    );
+    Map<String, Object> pageRef = (Map<String, Object>) JSON.deserializeUntyped(
+      alert.targetPageRef
+    );
+    Map<String, Object> attributes = (Map<String, Object>) pageRef.get(
+      'attributes'
+    );
+    Map<String, Object> state = (Map<String, Object>) pageRef.get('state');
+    Assert.areEqual('standard__objectPage', pageRef.get('type'), 'Page type');
+    Assert.areEqual('Onboarding__c', attributes.get('objectApiName'));
+    Assert.areEqual('list', attributes.get('actionName'));
+    Assert.areEqual(
+      'Backlog',
+      state.get('filterName'),
+      'Opens the Backlog list view'
     );
     Assert.areEqual(
       new Set<String>{ managersGroupId() },
@@ -552,6 +584,8 @@ private class CsmAssignmentServiceTest {
     Test.stopTest();
 
     // Per insert: 1 Opportunity lookup for defaults and names, then assignment's lock and count.
+    // The Kickoff Reached roll-up saves the onboardings again, but that update changes no name
+    // input, so it queries nothing.
     Assert.areEqual(3, forOne, 'Queries to insert 1');
     Assert.areEqual(3, forMany, 'Queries to insert 200');
   }

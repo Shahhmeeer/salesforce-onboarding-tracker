@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Kickoff_Reached__c</fullName>
+    <description
+  >When the onboarding first reached Kickoff Scheduled. Roll-up of the earliest First Reached on its Kickoff Scheduled stage row. The start point for Days To Launch.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >When this onboarding first reached Kickoff Scheduled.</inlineHelpText>
+    <label>Kickoff Reached</label>
+    <summarizedField>Onboarding_Stage__c.First_Reached__c</summarizedField>
+    <summaryFilterItems>
+        <field>Onboarding_Stage__c.Stage__c</field>
+        <operation>equals</operation>
+        <value>Kickoff_Scheduled</value>
+    </summaryFilterItems>
+    <summaryForeignKey>Onboarding_Stage__c.Onboarding__c</summaryForeignKey>
+    <summaryOperation>min</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Summary</type>
+</CustomField>
