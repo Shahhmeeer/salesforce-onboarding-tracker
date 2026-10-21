@@ -31,6 +31,10 @@ private class TriggerHandlerTest {
     }
   }
 
+  // Overrides nothing, so run() falls through to the empty base methods.
+  private class EmptyHandler extends TriggerHandler {
+  }
+
   private static final String HANDLER_NAME = 'RecordingHandler';
 
   private static List<String> runAs(System.TriggerOperation operation) {
@@ -159,6 +163,77 @@ private class TriggerHandlerTest {
       new List<String>{ 'afterUpdate' },
       runAs(System.TriggerOperation.AFTER_UPDATE),
       'Handler should run when the kill switch is off'
+    );
+    Test.stopTest();
+  }
+
+  @IsTest
+  static void bypassNameIsCaseInsensitive() {
+    Test.startTest();
+    TriggerHandler.bypass(HANDLER_NAME.toLowerCase());
+    Assert.isTrue(
+      TriggerHandler.isBypassed(HANDLER_NAME.toUpperCase()),
+      'Bypass should match the name in any case'
+    );
+    Assert.isTrue(
+      runAs(System.TriggerOperation.AFTER_INSERT).isEmpty(),
+      'Lowercase bypass should stop the handler'
+    );
+
+    TriggerHandler.clearBypass(HANDLER_NAME.toUpperCase());
+    Assert.areEqual(
+      new List<String>{ 'afterInsert' },
+      runAs(System.TriggerOperation.AFTER_INSERT),
+      'Clearing the bypass in another case should let the handler run'
+    );
+    Test.stopTest();
+  }
+
+  @IsTest
+  static void noTriggerContextDoesNothing() {
+    RecordingHandler handler = new RecordingHandler();
+
+    Test.startTest();
+    handler.run();
+    Test.stopTest();
+
+    Assert.isTrue(
+      handler.calls.isEmpty(),
+      'With no trigger context and no override, no method should run'
+    );
+  }
+
+  @IsTest
+  static void handlerWithNoOverridesCompletesForEveryOperation() {
+    Test.startTest();
+    new EmptyHandler().run();
+    for (System.TriggerOperation operation : System.TriggerOperation.values()) {
+      EmptyHandler handler = new EmptyHandler();
+      handler.operationType = operation;
+      handler.run();
+    }
+    Test.stopTest();
+
+    Assert.isTrue(
+      true,
+      'A handler that overrides nothing should run every operation without error'
+    );
+  }
+
+  @IsTest
+  static void noBypassSettingLetsHandlerRun() {
+    // Test check: confirm no setting exists for any user, profile or org, whoever runs the test.
+    Assert.areEqual(
+      0,
+      [SELECT COUNT() FROM Automation_Bypass__c WITH SYSTEM_MODE],
+      'Test should start with no Automation_Bypass__c records'
+    );
+
+    Test.startTest();
+    Assert.areEqual(
+      new List<String>{ 'beforeInsert' },
+      runAs(System.TriggerOperation.BEFORE_INSERT),
+      'Handler should run when no kill switch setting exists'
     );
     Test.stopTest();
   }
