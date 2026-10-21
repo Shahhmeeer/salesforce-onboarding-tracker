@@ -1,7 +1,8 @@
 /**
- * Tests for the Onboarding_CSM permission set and the sharing model (spec 10.1, 10.2), run as a
- * CSM: no delete, Status is manager-only, colleagues' onboardings are read only, and CSM Capacity
- * is out of reach. Moving stages and stage-row protection are covered in OnboardingStageTrackerTest.
+ * Tests for the permission sets and the sharing model (spec 10.1, 10.2). As a CSM: no delete,
+ * Status is manager-only, colleagues' onboardings are read only, CSM Capacity is out of reach, and
+ * the owner cannot be changed (Prevent_Owner_Change). As a manager: reassigning from the backlog
+ * works. Moving stages and stage-row protection are covered in OnboardingStageTrackerTest.
  */
 @IsTest
 private class OnboardingAccessTest {
@@ -11,15 +12,29 @@ private class OnboardingAccessTest {
     TestDataFactory.createAccounts(1);
   }
 
-  // Two CSMs with room for one each, then one won deal: assignment gives it to Avery (alphabetical).
+  private static Id accountId() {
+    // System mode: tests read setup data as the admin.
+    return [SELECT Id FROM Account WITH SYSTEM_MODE LIMIT 1].Id;
+  }
+
+  private static Id ownerOf(Id onboardingId) {
+    // System mode: tests read results as the admin.
+    return [
+      SELECT OwnerId
+      FROM Onboarding__c
+      WHERE Id = :onboardingId
+      WITH SYSTEM_MODE
+    ]
+    .OwnerId;
+  }
+
+  // Each CSM gets room for five, then one won deal: assignment gives it to the first by name.
   private static Onboarding__c createOnboardingFor(List<User> csms) {
     for (User csm : csms) {
       TestDataFactory.createCapacity(csm, 5);
     }
-    // System mode: tests read setup data as the admin.
-    Id accountId = [SELECT Id FROM Account WITH SYSTEM_MODE LIMIT 1].Id;
     Opportunity opp = TestDataFactory.createOpportunity(
-      accountId,
+      accountId(),
       TestDataFactory.wonStage()
     );
     // System mode: tests read results as the admin.
@@ -189,5 +204,114 @@ private class OnboardingAccessTest {
     Test.stopTest();
 
     Assert.isNotNull(error, 'CSM Capacity is for managers only');
+  }
+
+  @IsTest
+  static void csmCannotChangeTheOwner() {
+    List<User> csms = TestDataFactory.createCsmUsers(
+      2,
+      new List<String>{ 'Avery', 'Blake' }
+    );
+    Onboarding__c onboarding = createOnboardingFor(csms);
+    Assert.areEqual(csms[0].Id, onboarding.OwnerId, 'Assigned to Avery');
+
+    Test.startTest();
+    Exception error;
+    System.runAs(csms[0]) {
+      try {
+        update as user new Onboarding__c(
+          Id = onboarding.Id,
+          OwnerId = csms[1].Id
+        );
+      } catch (DmlException e) {
+        error = e;
+      }
+    }
+    Test.stopTest();
+
+    Assert.isNotNull(error, 'A CSM handing off their onboarding must fail');
+    Assert.isTrue(
+      error.getMessage().contains('Only CS managers can reassign onboardings.'),
+      error.getMessage()
+    );
+    Assert.areEqual(csms[0].Id, ownerOf(onboarding.Id), 'Still Avery');
+  }
+
+  @IsTest
+  static void managerCanReassignFromTheBacklog() {
+    User manager = TestDataFactory.createManagerUser();
+    User csm = TestDataFactory.createCsmUsers(
+      1,
+      new List<String>{ 'Avery' }
+    )[0];
+    // No CSM has capacity yet, so the won deal goes to the backlog queue.
+    Opportunity opp = TestDataFactory.createOpportunity(
+      accountId(),
+      TestDataFactory.wonStage()
+    );
+    // System mode: tests read results as the admin.
+    Onboarding__c onboarding = [
+      SELECT Id, OwnerId
+      FROM Onboarding__c
+      WHERE Opportunity__c = :opp.Id
+      WITH SYSTEM_MODE
+    ];
+    Assert.areEqual(
+      CsmAssignmentService.backlogQueueId(),
+      onboarding.OwnerId,
+      'In the backlog'
+    );
+
+    Test.startTest();
+    System.runAs(manager) {
+      update as user new Onboarding__c(Id = onboarding.Id, OwnerId = csm.Id);
+    }
+    Test.stopTest();
+
+    Assert.areEqual(csm.Id, ownerOf(onboarding.Id), 'Reassigned to Avery');
+  }
+
+  @IsTest
+  static void bulkCloseBySalesUserStillAssignsNormally() {
+    List<User> csms = TestDataFactory.createCsmUsers(
+      2,
+      new List<String>{ 'Avery', 'Blake' }
+    );
+    for (User csm : csms) {
+      TestDataFactory.createCapacity(csm, 100);
+    }
+    User salesUser = TestDataFactory.createSalesUser();
+    String won = TestDataFactory.wonStage();
+
+    Test.startTest();
+    System.runAs(salesUser) {
+      // Accounts are private, so the sales user closes deals on an account they own.
+      Account customer = new Account(Name = 'Sales Rep Customer');
+      insert as user customer;
+      List<Opportunity> deals = new List<Opportunity>();
+      for (Integer i = 0; i < 200; i++) {
+        deals.add(TestDataFactory.buildOpportunity(customer.Id, won));
+      }
+      // The sales user has no Onboarding_Reassign; assignment on insert must still set owners.
+      insert as user deals;
+    }
+    Test.stopTest();
+
+    Map<Id, Integer> countByOwner = new Map<Id, Integer>();
+    // System mode: tests read results as the admin.
+    for (AggregateResult row : [
+      SELECT OwnerId, COUNT(Id) total
+      FROM Onboarding__c
+      WITH SYSTEM_MODE
+      GROUP BY OwnerId
+    ]) {
+      countByOwner.put((Id) row.get('OwnerId'), (Integer) row.get('total'));
+    }
+    Assert.areEqual(100, countByOwner.get(csms[0].Id), 'Avery filled');
+    Assert.areEqual(100, countByOwner.get(csms[1].Id), 'Blake filled');
+    Assert.isFalse(
+      countByOwner.containsKey(CsmAssignmentService.backlogQueueId()),
+      'Nothing in the backlog'
+    );
   }
 }
