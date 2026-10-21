@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bypass_Triggers__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+  >When ticked, all onboarding-related Apex trigger handlers stop at the start and do nothing for this user.</description>
+    <inlineHelpText
+  >Tick to switch off onboarding Apex triggers. Records saved while this is on get no onboarding, assignment or stage rows.</inlineHelpText>
+    <label>Bypass Triggers</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

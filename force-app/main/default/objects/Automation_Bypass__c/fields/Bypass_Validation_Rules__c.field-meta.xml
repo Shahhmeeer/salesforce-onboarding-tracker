@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bypass_Validation_Rules__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+  >When ticked, onboarding validation rules do not fire for this user. Every validation rule checks this first.</description>
+    <inlineHelpText
+  >Tick to switch off onboarding validation rules.</inlineHelpText>
+    <label>Bypass Validation Rules</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

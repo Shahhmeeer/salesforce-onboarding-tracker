@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bypass_Flows__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+  >When ticked, onboarding record-triggered flows do nothing for this user. Every flow checks this in its entry condition.</description>
+    <inlineHelpText
+  >Tick to switch off onboarding record-triggered flows.</inlineHelpText>
+    <label>Bypass Flows</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

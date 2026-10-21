@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Counts_Toward_Capacity__c</fullName>
+    <description
+  >True when the onboarding uses one of the owner&apos;s capacity slots: Status is not Cancelled and Stage is not Post-Launch Review. On Hold still counts (assumption A9).</description>
+    <externalId>false</externalId>
+    <formula>AND(
+    NOT(ISPICKVAL(Status__c, &quot;Cancelled&quot;)),
+    NOT(ISPICKVAL(Stage__c, &quot;Post_Launch_Review&quot;))
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <inlineHelpText
+  >Ticked when this onboarding uses up one of the owner&apos;s capacity slots. On Hold onboardings still count.</inlineHelpText>
+    <label>Counts Toward Capacity</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>
