@@ -128,6 +128,7 @@ public without sharing class OnboardingStageTracker {
   }
 
   // Only the fields that change, so First_Reached__c and the master-detail are never written.
+  // The total stays unrounded; Days_In_Stage__c rounds once for display (spec A28).
   private static Onboarding_Stage__c closeVisit(
     Onboarding_Stage__c row,
     Datetime now
@@ -140,7 +141,7 @@ public without sharing class OnboardingStageTracker {
       : row.Completed_Visit_Days__c;
     return new Onboarding_Stage__c(
       Unique_Key__c = row.Unique_Key__c,
-      Completed_Visit_Days__c = (completed + visitDays).setScale(2),
+      Completed_Visit_Days__c = (completed + visitDays).setScale(10),
       Current_Visit_Started__c = null
     );
   }
