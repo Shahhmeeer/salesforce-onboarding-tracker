@@ -8,7 +8,7 @@
         <shortDescription
     >Backlog alert body for 2 or more onboardings. {0} = how many.</shortDescription>
         <value
-    >{0} new onboardings went to the Onboarding Backlog queue because every CSM is at capacity. Open the queue and assign them.</value>
+    >{0} new onboardings went to the Onboarding Backlog queue because every CSM is at capacity. Open the Backlog list to assign them.</value>
     </labels>
     <labels>
         <fullName>Onboarding_Backlog_Alert_Body_One</fullName>
@@ -18,7 +18,7 @@
         <shortDescription
     >Backlog alert body for exactly 1 onboarding. {0} = 1.</shortDescription>
         <value
-    >{0} new onboarding went to the Onboarding Backlog queue because every CSM is at capacity. Open the queue and assign it.</value>
+    >{0} new onboarding went to the Onboarding Backlog queue because every CSM is at capacity. Open the Backlog list to assign it.</value>
     </labels>
     <labels>
         <fullName>Onboarding_Backlog_Alert_Title</fullName>

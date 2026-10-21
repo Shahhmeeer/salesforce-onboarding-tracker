@@ -344,9 +344,20 @@ private class CsmAssignmentServiceTest {
       alert.body.startsWith('3 new onboardings went'),
       'Plural body: ' + alert.body
     );
-    Assert.isTrue(
-      new Map<Id, Onboarding__c>(onboardings).containsKey(alert.targetId),
-      'Target is one of the backlog records'
+    Map<String, Object> pageRef = (Map<String, Object>) JSON.deserializeUntyped(
+      alert.targetPageRef
+    );
+    Map<String, Object> attributes = (Map<String, Object>) pageRef.get(
+      'attributes'
+    );
+    Map<String, Object> state = (Map<String, Object>) pageRef.get('state');
+    Assert.areEqual('standard__objectPage', pageRef.get('type'), 'Page type');
+    Assert.areEqual('Onboarding__c', attributes.get('objectApiName'));
+    Assert.areEqual('list', attributes.get('actionName'));
+    Assert.areEqual(
+      'Backlog',
+      state.get('filterName'),
+      'Opens the Backlog list view'
     );
     Assert.areEqual(
       new Set<String>{ managersGroupId() },

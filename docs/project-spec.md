@@ -534,7 +534,7 @@ An update that changes none of these and not the Stage does no work and no queri
 **After insert:**
 
 1. `OnboardingStageTracker` creates the first stage row (Kickoff Scheduled).
-2. If any records were assigned to the backlog queue: send one custom notification to `CS_Managers`. Title "Onboardings waiting in the backlog"; body "1 new onboarding went …" or "N new onboardings went …" (one Custom Label each). Its target is the first backlog onboarding in the batch, so clicking the alert opens that onboarding's record page.
+2. If any records were assigned to the backlog queue: send one custom notification to `CS_Managers`. Title "Onboardings waiting in the backlog"; body "1 new onboarding went …" or "N new onboardings went …" (one Custom Label each). Its target is a page reference to the Onboarding `Backlog` list view (filtered to the `Onboarding_Backlog` queue), by API name, so clicking the alert opens the queue's list. The body ends "Open the Backlog list to assign them."
 
 **After update:**
 
@@ -886,7 +886,7 @@ Each test asserts behaviour, not just coverage.
 - Inactive CSM Capacity records and inactive users are skipped.
 - On Hold onboardings count toward capacity; Cancelled and Post-Launch Review do not.
 - No CSMs configured: everything goes to the backlog.
-- Backlog alert body is singular for 1 record ("1 new onboarding") and plural otherwise ("3 new onboardings").
+- Backlog alert body is singular for 1 record ("1 new onboarding") and plural otherwise ("3 new onboardings"). Its target is the `Backlog` list view.
 - **Bulk:** 200 onboardings with set capacities and existing loads produce the exact expected count per CSM and the exact backlog count. No CSM exceeds capacity.
 
 **`OnboardingStageTrackerTest`**

@@ -81,7 +81,7 @@ With the seed data in place, CSMs have 26 free slots, so the expected result is:
 | Sam Ortiz    | 10       | 1             | 9        |
 | **Backlog**  |          |               | **174**  |
 
-The managers also get one backlog alert, "174 new onboardings went to the Onboarding Backlog queue …". Clicking it opens the first onboarding that went to the backlog. A larger load sends one alert per 200-record batch.
+The managers also get one backlog alert, "174 new onboardings went to the Onboarding Backlog queue …". Clicking it opens the **Backlog** list view, the onboardings waiting in the queue. A larger load sends one alert per 200-record batch.
 
 1. Load 200 open opportunities (`Demo Bulk 001` to `Demo Bulk 200`):
 

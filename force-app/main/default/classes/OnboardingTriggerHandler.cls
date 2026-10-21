@@ -26,6 +26,8 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
   private static final String NO_DATE = 'TBD';
   private static final Integer NAME_MAX_LENGTH = 80;
   private static final String MANAGER_GROUP_TYPE = 'Regular';
+  // The Onboarding list view filtered to the backlog queue. The alert opens it.
+  private static final String BACKLOG_LIST_VIEW = 'Backlog';
 
   protected override void beforeInsert() {
     List<Onboarding__c> onboardings = (List<Onboarding__c>) Trigger.new;
@@ -160,7 +162,8 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
       new List<Object>{ backlog.size() }
     );
     alert.setBody(body);
-    alert.setTargetId(backlog[0].Id);
+    String targetPageRef = backlogListViewPageRef();
+    alert.setTargetPageRef(targetPageRef);
     Set<String> recipients = new Set<String>{ managers[0].Id };
     alert.send(recipients);
 
@@ -168,8 +171,22 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     lastBacklogAlert = new BacklogAlert(
       backlog.size(),
       body,
-      backlog[0].Id,
+      targetPageRef,
       recipients
+    );
+  }
+
+  // A Lightning page reference to the Backlog list view, by API name, so no Ids are stored.
+  private static String backlogListViewPageRef() {
+    return JSON.serialize(
+      new Map<String, Object>{
+        'type' => 'standard__objectPage',
+        'attributes' => new Map<String, Object>{
+          'objectApiName' => String.valueOf(Onboarding__c.SObjectType),
+          'actionName' => 'list'
+        },
+        'state' => new Map<String, Object>{ 'filterName' => BACKLOG_LIST_VIEW }
+      }
     );
   }
 
@@ -186,19 +203,19 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     @TestVisible
     final String body;
     @TestVisible
-    final Id targetId;
+    final String targetPageRef;
     @TestVisible
     final Set<String> recipientIds;
 
     BacklogAlert(
       Integer backlogCount,
       String body,
-      Id targetId,
+      String targetPageRef,
       Set<String> recipientIds
     ) {
       this.backlogCount = backlogCount;
       this.body = body;
-      this.targetId = targetId;
+      this.targetPageRef = targetPageRef;
       this.recipientIds = recipientIds;
     }
   }
