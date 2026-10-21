@@ -90,6 +90,10 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>Kickoff_Reached__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>Go_Live_Reached__c</field>
             </layoutItems>
             <layoutItems>

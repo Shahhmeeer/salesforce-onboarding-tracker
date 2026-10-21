@@ -73,6 +73,11 @@
         </columns>
         <columns>
             <checkedByDefault>false</checkedByDefault>
+            <field>Kickoff_Reached__c</field>
+            <table>Onboarding__c</table>
+        </columns>
+        <columns>
+            <checkedByDefault>false</checkedByDefault>
             <field>CreatedDate</field>
             <table>Onboarding__c</table>
         </columns>

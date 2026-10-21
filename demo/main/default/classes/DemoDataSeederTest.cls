@@ -72,7 +72,9 @@ private class DemoDataSeederTest {
         Current_Stage_Entered__c,
         Gathering_Info_Notes__c,
         Implementation_Notes__c,
-        Go_Live_Reached__c
+        Go_Live_Reached__c,
+        Kickoff_Reached__c,
+        Days_To_Launch__c
       FROM Onboarding__c
       WHERE Account__r.Name = :company
       WITH SYSTEM_MODE
@@ -212,6 +214,23 @@ private class DemoDataSeederTest {
       ob.Go_Live_Reached__c,
       'Roll-up sees the backdated Go Live'
     );
+  }
+
+  @IsTest
+  static void daysToLaunchCountsFromTheBackdatedKickoff() {
+    bypassOn();
+    DemoDataSeeder.nowOverride = NOW;
+
+    DemoDataSeeder.seed(seeds());
+
+    // Kickoff May 1 to Go Live May 22. Counted from CreatedDate (today) it would be negative.
+    Onboarding__c rework = onboardingFor('Rework Co');
+    Assert.areEqual(NOW.addHours(-24 * 24), rework.Kickoff_Reached__c);
+    Assert.areEqual(21.0, rework.Days_To_Launch__c, 'Kickoff to Go Live');
+
+    Onboarding__c early = onboardingFor('Early Co');
+    Assert.areEqual(NOW.addHours(-24 * 4), early.Kickoff_Reached__c);
+    Assert.isNull(early.Days_To_Launch__c, 'Blank until Go Live');
   }
 
   @IsTest
