@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Require_Non_Negative_Capacity</fullName>
+    <active>true</active>
+    <description
+  >Blocks a negative capacity. 0 is the way to stop new assignments.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+Max_Active_Onboardings__c &lt; 0</errorConditionFormula>
+    <errorDisplayField>Max_Active_Onboardings__c</errorDisplayField>
+    <errorMessage
+  >Maximum active onboardings cannot be negative. Use 0 to pause new assignments.</errorMessage>
+</ValidationRule>

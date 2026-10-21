@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Lock_Stage_When_Not_Active</fullName>
+    <active>true</active>
+    <description
+  >Freezes the stage while the onboarding is On Hold or Cancelled, so paused work does not look like progress.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+ISCHANGED(Stage__c) &amp;&amp;
+NOT(ISPICKVAL(Status__c, "Active"))</errorConditionFormula>
+    <errorDisplayField>Stage__c</errorDisplayField>
+    <errorMessage
+  >This onboarding is On Hold or Cancelled. Change the status back to Active before moving stages.</errorMessage>
+</ValidationRule>

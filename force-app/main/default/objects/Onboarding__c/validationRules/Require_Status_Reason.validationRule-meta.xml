@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Require_Status_Reason</fullName>
+    <active>true</active>
+    <description
+  >Requires a Status Reason whenever the onboarding is not Active, so everyone can see why it stopped.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+NOT(ISPICKVAL(Status__c, "Active")) &amp;&amp;
+ISBLANK(Status_Reason__c)</errorConditionFormula>
+    <errorDisplayField>Status_Reason__c</errorDisplayField>
+    <errorMessage
+  >Add a reason when an onboarding is On Hold or Cancelled.</errorMessage>
+</ValidationRule>

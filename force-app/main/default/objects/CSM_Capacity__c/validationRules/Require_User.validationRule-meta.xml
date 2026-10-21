@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Require_User</fullName>
+    <active>true</active>
+    <description
+  >Makes User required. Done with a validation rule because Salesforce does not allow a required lookup to User (assumption A19).</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+ISBLANK(User__c)</errorConditionFormula>
+    <errorDisplayField>User__c</errorDisplayField>
+    <errorMessage>Choose the CSM this capacity record is for.</errorMessage>
+</ValidationRule>

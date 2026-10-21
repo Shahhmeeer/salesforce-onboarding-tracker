@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Prevent_Opportunity_Change</fullName>
+    <active>true</active>
+    <description
+  >Stops an onboarding being moved to a different Opportunity after creation. The unique Opportunity Key depends on it.</description>
+    <errorConditionFormula
+  >NOT($Setup.Automation_Bypass__c.Bypass_Validation_Rules__c) &amp;&amp;
+NOT(ISNEW()) &amp;&amp;
+ISCHANGED(Opportunity__c)</errorConditionFormula>
+    <errorDisplayField>Opportunity__c</errorDisplayField>
+    <errorMessage
+  >An onboarding always belongs to the deal it was created for. It cannot be moved to another deal.</errorMessage>
+</ValidationRule>
