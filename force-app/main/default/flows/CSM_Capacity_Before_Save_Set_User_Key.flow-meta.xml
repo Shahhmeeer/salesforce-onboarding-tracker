@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>67.0</apiVersion>
+    <assignments>
+        <description
+    >Copies the CSM's User ID into the unique User Key field.</description>
+        <name>Set_User_Key</name>
+        <label>Set User Key</label>
+        <locationX>176</locationX>
+        <locationY>287</locationY>
+        <assignmentItems>
+            <assignToReference>$Record.User_Key__c</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>$Record.User__c</elementReference>
+            </value>
+        </assignmentItems>
+    </assignments>
+    <description
+  >Copies User into the unique User Key field on every create and update, so each person can have only one CSM Capacity record. Skipped when Automation Bypass has Bypass Flows ticked.</description>
+    <environments>Default</environments>
+    <interviewLabel
+  >CSM Capacity Before Save: Set User Key {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>CSM Capacity Before Save: Set User Key</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Set_User_Key</targetReference>
+        </connector>
+        <filterFormula
+    >{!$Setup.Automation_Bypass__c.Bypass_Flows__c} = false</filterFormula>
+        <object>CSM_Capacity__c</object>
+        <recordTriggerType>CreateAndUpdate</recordTriggerType>
+        <triggerType>RecordBeforeSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>
