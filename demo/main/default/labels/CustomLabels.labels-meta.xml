@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+    <labels>
+        <fullName>Onboarding_Demo_Seed_Bypass_Off</fullName>
+        <categories>Onboarding</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription
+    >Demo seed refused because the kill switch is not fully on for the running user.</shortDescription>
+        <value
+    >Demo history can only be seeded with the automation kill switch on. Turn on Bypass Triggers, Bypass Flows and Bypass Validation Rules in Automation Bypass for your user, or run scripts/apex/seed-demo-data.apex, which does this for you.</value>
+    </labels>
+    <labels>
+        <fullName>Onboarding_Demo_Seed_No_CSMs</fullName>
+        <categories>Onboarding</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription
+    >Demo seed refused because there are no active CSMs to own the onboardings.</shortDescription>
+        <value
+    >There are no active CSMs to own the demo onboardings. Run scripts/apex/seed-csm-capacity.apex first.</value>
+    </labels>
+</CustomLabels>
