@@ -3,9 +3,11 @@
  * whether the onboarding came from a won deal or was created by hand (A12).
  *
  * Before insert: copy Opportunity_Key__c and Account__c from the Opportunity, default the target
- * go-live date, Stage and Status, stamp Current_Stage_Entered__c and build the Name.
+ * go-live date, Stage and Status, stamp Current_Stage_Entered__c, build the Name, then assign the
+ * owner through CsmAssignmentService (spec 7).
  * Before update: re-stamp Current_Stage_Entered__c on a stage change and rebuild the Name.
- * After insert / after update: hooks for assignment notifications (S4) and stage tracking (S5).
+ * After insert: send one alert to CS managers if any records went to the backlog queue.
+ * After insert / after update: hooks for stage tracking (S5).
  *
  * Name format: "<Customer> - Go Live <yyyy-MM-dd>", or "... - Go Live TBD" with no target date.
  * Customer is the onboarding's Account name, or the Opportunity name when there is no Account. The
@@ -21,6 +23,7 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
   private static final String NAME_SEPARATOR = ' - Go Live ';
   private static final String NO_DATE = 'TBD';
   private static final Integer NAME_MAX_LENGTH = 80;
+  private static final String MANAGER_GROUP_TYPE = 'Regular';
 
   protected override void beforeInsert() {
     List<Onboarding__c> onboardings = (List<Onboarding__c>) Trigger.new;
@@ -54,6 +57,7 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
       onboarding.Current_Stage_Entered__c = now;
     }
     rebuildNames(onboardings, opportunities);
+    CsmAssignmentService.assign(onboardings);
   }
 
   protected override void beforeUpdate() {
@@ -70,12 +74,98 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
   }
 
   protected override void afterInsert() {
-    // S4 hook: notify CS managers when onboardings went to the backlog queue.
+    notifyBacklog((List<Onboarding__c>) Trigger.new);
     // S5 hook: create the first stage row (Kickoff Scheduled) via OnboardingStageTracker.
   }
 
   protected override void afterUpdate() {
     // S5 hook: track stage changes via OnboardingStageTracker.
+  }
+
+  // Sends one alert to the CS managers group for the whole batch, however many records went to the
+  // backlog. Skipped, without blocking the save, if the group or notification type is missing:
+  // the onboardings are already safe in the queue.
+  private static void notifyBacklog(List<Onboarding__c> onboardings) {
+    Id queueId = CsmAssignmentService.backlogQueueId();
+    if (queueId == null) {
+      return;
+    }
+    List<Onboarding__c> backlog = new List<Onboarding__c>();
+    for (Onboarding__c onboarding : onboardings) {
+      if (onboarding.OwnerId == queueId) {
+        backlog.add(onboarding);
+      }
+    }
+    if (backlog.isEmpty()) {
+      return;
+    }
+
+    Onboarding_Setting__mdt setting = Onboarding_Setting__mdt.getInstance(
+      SETTING_NAME
+    );
+    String groupName = setting?.Manager_Group_Name__c;
+    String typeName = setting?.Notification_Type_Name__c;
+    // System mode: the managers group must be found whoever saved the onboardings (spec 4.5).
+    List<Group> managers = [
+      SELECT Id
+      FROM Group
+      WHERE Type = :MANAGER_GROUP_TYPE AND DeveloperName = :groupName
+      WITH SYSTEM_MODE
+      LIMIT 1
+    ];
+    // System mode: notification types are setup data the saving user may not be able to read.
+    List<CustomNotificationType> types = [
+      SELECT Id
+      FROM CustomNotificationType
+      WHERE DeveloperName = :typeName
+      WITH SYSTEM_MODE
+      LIMIT 1
+    ];
+    if (managers.isEmpty() || types.isEmpty()) {
+      return;
+    }
+
+    Messaging.CustomNotification alert = new Messaging.CustomNotification();
+    alert.setNotificationTypeId(types[0].Id);
+    alert.setTitle(Label.Onboarding_Backlog_Alert_Title);
+    alert.setBody(
+      String.format(
+        Label.Onboarding_Backlog_Alert_Body,
+        new List<Object>{ backlog.size() }
+      )
+    );
+    alert.setTargetId(backlog[0].Id);
+    Set<String> recipients = new Set<String>{ managers[0].Id };
+    alert.send(recipients);
+
+    backlogAlertsSent++;
+    lastBacklogAlert = new BacklogAlert(
+      backlog.size(),
+      backlog[0].Id,
+      recipients
+    );
+  }
+
+  // Tests cannot read sent custom notifications, so the handler records what it sent.
+  @TestVisible
+  private static Integer backlogAlertsSent = 0;
+  @TestVisible
+  private static BacklogAlert lastBacklogAlert;
+
+  @TestVisible
+  private class BacklogAlert {
+    @TestVisible
+    final Integer backlogCount;
+    @TestVisible
+    final Id targetId;
+    @TestVisible
+    final Set<String> recipientIds;
+
+    BacklogAlert(Integer backlogCount, Id targetId, Set<String> recipientIds) {
+      this.backlogCount = backlogCount;
+      this.targetId = targetId;
+      this.recipientIds = recipientIds;
+    }
   }
 
   private static Map<Id, Opportunity> queryOpportunities(
