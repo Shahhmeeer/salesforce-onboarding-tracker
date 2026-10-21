@@ -4,8 +4,12 @@
         <application>Revinfinity_Onboarding_Tracker</application>
         <visible>true</visible>
     </applicationVisibilities>
+    <customPermissions>
+        <enabled>true</enabled>
+        <name>Onboarding_Reassign</name>
+    </customPermissions>
     <description
-  >For CS managers, leadership and tracker admins. Everything in Onboarding CSM, plus view and modify all onboardings (reassign, work the backlog, change status) and full access to CSM Capacity. Adds the CSM Capacities and Opportunities tabs.</description>
+  >For CS managers, leadership and tracker admins. Everything in Onboarding CSM, plus view and modify all onboardings, reassign them (Onboarding Reassign), change status, full CSM Capacity access, and the CSM Capacities and Opportunities tabs.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Onboarding Manager</label>
     <fieldPermissions>

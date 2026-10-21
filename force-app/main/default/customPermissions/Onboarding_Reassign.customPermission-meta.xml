@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Lets CS managers change the owner of an existing onboarding (reassign, or work the backlog). Granted only through Onboarding Manager.</description>
+    <isLicensed>false</isLicensed>
+    <label>Reassign Onboardings</label>
+</CustomPermission>
