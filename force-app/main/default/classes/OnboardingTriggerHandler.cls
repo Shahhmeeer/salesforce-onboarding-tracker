@@ -5,11 +5,12 @@
  * Before insert: copy Opportunity_Key__c and Account__c from the Opportunity, default the target
  * go-live date, Stage and Status, stamp Current_Stage_Entered__c, build the Name, then assign the
  * owner through CsmAssignmentService (spec 7).
- * Before update: re-stamp Current_Stage_Entered__c on a stage change, and rebuild the Name only
+ * Before update: re-stamp Current_Stage_Entered__c on a stage change, keep Opportunity_Key__c in
+ * step with Opportunity__c (it can only change with validation rules bypassed), and rebuild the Name only
  * when one of its inputs changed (Name, Account, Opportunity, target date). Updates that change
  * neither, such as the save Salesforce makes when a roll-up recalculates, do no work and no queries.
- * After insert: send one alert to CS managers if any records went to the backlog queue.
- * After insert / after update: stage rows through OnboardingStageTracker (spec 8).
+ * After insert / after update: stage rows through OnboardingStageTracker (spec 8). After insert,
+ * then one alert to CS managers, queued to run after commit, if any records went to the backlog.
  *
  * Name format: "<Customer> - Go Live <yyyy-MM-dd>", or "... - Go Live TBD" with no target date.
  * Customer is the onboarding's Account name, or the Opportunity name when there is no Account. The
@@ -75,6 +76,9 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
       if (onboarding.Stage__c != old.Stage__c) {
         onboarding.Current_Stage_Entered__c = now;
       }
+      if (onboarding.Opportunity__c != old.Opportunity__c) {
+        onboarding.Opportunity_Key__c = onboarding.Opportunity__c;
+      }
       if (nameInputsChanged(onboarding, old)) {
         renamed.add(onboarding);
       }
@@ -96,10 +100,10 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
   }
 
   protected override void afterInsert() {
-    notifyBacklog((List<Onboarding__c>) Trigger.new);
     OnboardingStageTracker.trackNewOnboardings(
       (List<Onboarding__c>) Trigger.new
     );
+    notifyBacklog((List<Onboarding__c>) Trigger.new);
   }
 
   protected override void afterUpdate() {
@@ -109,71 +113,94 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     );
   }
 
-  // Sends one alert to the CS managers group for the whole batch, however many records went to the
-  // backlog. Skipped, without blocking the save, if the group or notification type is missing:
-  // the onboardings are already safe in the queue.
+  // Queues one alert to the CS managers group for the whole batch, however many records went to the
+  // backlog. A Queueable only runs if the save commits, so a partial-success save that Salesforce
+  // rolls back and retries queues exactly one alert, from the attempt that sticks. If this
+  // transaction cannot queue another job (for example a second chunk inside batch Apex), the alert
+  // is skipped rather than failing the save: the onboardings are already safe in the queue (A23).
   private static void notifyBacklog(List<Onboarding__c> onboardings) {
     Id queueId = CsmAssignmentService.backlogQueueId();
     if (queueId == null) {
       return;
     }
-    List<Onboarding__c> backlog = new List<Onboarding__c>();
+    Integer backlogCount = 0;
     for (Onboarding__c onboarding : onboardings) {
       if (onboarding.OwnerId == queueId) {
-        backlog.add(onboarding);
+        backlogCount++;
       }
     }
-    if (backlog.isEmpty()) {
+    if (
+      backlogCount == 0 ||
+      Limits.getQueueableJobs() >= Limits.getLimitQueueableJobs()
+    ) {
       return;
     }
+    System.enqueueJob(new BacklogAlertJob(backlogCount));
+  }
 
-    Onboarding_Setting__mdt setting = Onboarding_Setting__mdt.getInstance(
-      SETTING_NAME
-    );
-    String groupName = setting?.Manager_Group_Name__c;
-    String typeName = setting?.Notification_Type_Name__c;
-    // System mode: the managers group must be found whoever saved the onboardings (spec 4.5).
-    List<Group> managers = [
-      SELECT Id
-      FROM Group
-      WHERE Type = :MANAGER_GROUP_TYPE AND DeveloperName = :groupName
-      WITH SYSTEM_MODE
-      LIMIT 1
-    ];
-    // System mode: notification types are setup data the saving user may not be able to read.
-    List<CustomNotificationType> types = [
-      SELECT Id
-      FROM CustomNotificationType
-      WHERE DeveloperName = :typeName
-      WITH SYSTEM_MODE
-      LIMIT 1
-    ];
-    if (managers.isEmpty() || types.isEmpty()) {
-      return;
+  /**
+   * Sends the backlog alert after the onboardings are committed. Skipped, without error, if the
+   * managers group or the notification type is missing (A23).
+   *
+   * without sharing, system mode: runs as the user who saved the onboardings, who may not be able to
+   * read the group or the notification type (spec 4.5).
+   */
+  @TestVisible
+  private without sharing class BacklogAlertJob implements Queueable {
+    private final Integer backlogCount;
+
+    BacklogAlertJob(Integer backlogCount) {
+      this.backlogCount = backlogCount;
     }
 
-    Messaging.CustomNotification alert = new Messaging.CustomNotification();
-    alert.setNotificationTypeId(types[0].Id);
-    alert.setTitle(Label.Onboarding_Backlog_Alert_Title);
-    String body = String.format(
-      backlog.size() == 1
-        ? Label.Onboarding_Backlog_Alert_Body_One
-        : Label.Onboarding_Backlog_Alert_Body,
-      new List<Object>{ backlog.size() }
-    );
-    alert.setBody(body);
-    String targetPageRef = backlogListViewPageRef();
-    alert.setTargetPageRef(targetPageRef);
-    Set<String> recipients = new Set<String>{ managers[0].Id };
-    alert.send(recipients);
+    public void execute(QueueableContext context) {
+      Onboarding_Setting__mdt setting = Onboarding_Setting__mdt.getInstance(
+        SETTING_NAME
+      );
+      String groupName = setting?.Manager_Group_Name__c;
+      String typeName = setting?.Notification_Type_Name__c;
+      // System mode: the managers group must be found whoever saved the onboardings (spec 4.5).
+      List<Group> managers = [
+        SELECT Id
+        FROM Group
+        WHERE Type = :MANAGER_GROUP_TYPE AND DeveloperName = :groupName
+        WITH SYSTEM_MODE
+        LIMIT 1
+      ];
+      // System mode: notification types are setup data the saving user may not be able to read.
+      List<CustomNotificationType> types = [
+        SELECT Id
+        FROM CustomNotificationType
+        WHERE DeveloperName = :typeName
+        WITH SYSTEM_MODE
+        LIMIT 1
+      ];
+      if (managers.isEmpty() || types.isEmpty()) {
+        return;
+      }
 
-    backlogAlertsSent++;
-    lastBacklogAlert = new BacklogAlert(
-      backlog.size(),
-      body,
-      targetPageRef,
-      recipients
-    );
+      Messaging.CustomNotification alert = new Messaging.CustomNotification();
+      alert.setNotificationTypeId(types[0].Id);
+      alert.setTitle(Label.Onboarding_Backlog_Alert_Title);
+      String body = String.format(
+        backlogCount == 1
+          ? Label.Onboarding_Backlog_Alert_Body_One
+          : Label.Onboarding_Backlog_Alert_Body,
+        new List<Object>{ backlogCount }
+      );
+      alert.setBody(body);
+      String targetPageRef = backlogListViewPageRef();
+      alert.setTargetPageRef(targetPageRef);
+      Set<String> recipients = new Set<String>{ managers[0].Id };
+      alert.send(recipients);
+
+      lastBacklogAlert = new BacklogAlert(
+        backlogCount,
+        body,
+        targetPageRef,
+        recipients
+      );
+    }
   }
 
   // A Lightning page reference to the Backlog list view, by API name, so no Ids are stored.
@@ -190,9 +217,7 @@ public without sharing class OnboardingTriggerHandler extends TriggerHandler {
     );
   }
 
-  // Tests cannot read sent custom notifications, so the handler records what it sent.
-  @TestVisible
-  private static Integer backlogAlertsSent = 0;
+  // Tests cannot read sent custom notifications, so the job records what it sent.
   @TestVisible
   private static BacklogAlert lastBacklogAlert;
 
