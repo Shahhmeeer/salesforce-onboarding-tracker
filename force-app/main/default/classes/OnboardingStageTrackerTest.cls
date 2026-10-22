@@ -684,7 +684,16 @@ private class OnboardingStageTrackerTest {
     }
     Test.stopTest();
 
-    Assert.isNotNull(error, 'A CSM editing a stage row must fail');
+    // CSMs have read-only object access to stage rows, so the user-mode save is refused.
+    Assert.isInstanceOfType(
+      error,
+      TypeException.class,
+      'A CSM editing a stage row must fail: ' + error
+    );
+    Assert.areEqual(
+      'DML operation UPDATE not allowed on Onboarding_Stage__c',
+      error.getMessage()
+    );
     Assert.areEqual(
       1,
       rowsByStage(onboarding.Id).get('Kickoff_Scheduled').Visit_Count__c

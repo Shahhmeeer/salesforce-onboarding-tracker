@@ -25,6 +25,7 @@ private class OnboardingValidationTest {
   }
 
   private static Id onboardingId() {
+    // System mode: tests read setup data as the admin.
     return [SELECT Id FROM Onboarding__c WITH SYSTEM_MODE LIMIT 1].Id;
   }
 
