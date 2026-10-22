@@ -79,6 +79,20 @@ private class CsmAssignmentServiceTest {
     return counts.containsKey(ownerId) ? counts.get(ownerId) : 0;
   }
 
+  // Backlog alert jobs queued in this test. The alert is a Queueable (an inner class of the
+  // handler), so each queued job is one alert sent after commit.
+  private static Integer alertJobs() {
+    // System mode: tests read job records as the admin.
+    return [
+      SELECT COUNT()
+      FROM AsyncApexJob
+      WHERE
+        JobType = 'Queueable'
+        AND ApexClass.Name = 'OnboardingTriggerHandler'
+      WITH SYSTEM_MODE
+    ];
+  }
+
   // Everything the user owns that counts toward capacity, old and new.
   private static Integer countingLoad(Id userId) {
     // System mode: tests read results as the admin.
@@ -192,7 +206,6 @@ private class CsmAssignmentServiceTest {
     TestDataFactory.createCapacity(b, 4);
     TestDataFactory.createCapacity(c, 10);
     Id backlog = backlogQueueId();
-    Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
     List<Onboarding__c> onboardings = insertNew(24);
 
@@ -220,11 +233,7 @@ private class CsmAssignmentServiceTest {
     Assert.areEqual(4, countFor(counts, b.Id), 'B');
     Assert.areEqual(10, countFor(counts, c.Id), 'C');
     Assert.areEqual(1, countFor(counts, backlog), 'Backlog');
-    Assert.areEqual(
-      1,
-      OnboardingTriggerHandler.backlogAlertsSent - alertsBefore,
-      'One alert'
-    );
+    Assert.areEqual(1, alertJobs(), 'One alert');
   }
 
   @IsTest
@@ -328,14 +337,12 @@ private class CsmAssignmentServiceTest {
 
   @IsTest
   static void noCapacityRecordsSendsEverythingToBacklogWithOneAlert() {
-    Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
-
     List<Onboarding__c> onboardings = insertNew(3);
 
     Assert.areEqual(3, countFor(countsByOwner(onboardings), backlogQueueId()));
     Assert.areEqual(
       1,
-      OnboardingTriggerHandler.backlogAlertsSent - alertsBefore,
+      alertJobs(),
       'One alert for the batch, not one per record'
     );
     OnboardingTriggerHandler.BacklogAlert alert = OnboardingTriggerHandler.lastBacklogAlert;
@@ -370,14 +377,10 @@ private class CsmAssignmentServiceTest {
   static void noBacklogMeansNoAlert() {
     List<User> csms = TestDataFactory.createCsmUsers(1, null);
     TestDataFactory.createCapacity(csms[0], 5);
-    Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
     insertNew(5);
 
-    Assert.areEqual(
-      0,
-      OnboardingTriggerHandler.backlogAlertsSent - alertsBefore
-    );
+    Assert.areEqual(0, alertJobs());
   }
 
   @IsTest
@@ -428,7 +431,6 @@ private class CsmAssignmentServiceTest {
     existing(bravo, 4, 'QA_Review', 'On_Hold');
     existing(charlie, 2, 'Post_Launch_Review', 'Active');
     existing(delta, 20, 'Go_Live', 'Active');
-    Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
     List<Onboarding__c> onboardings = insertNew(200);
 
@@ -448,11 +450,7 @@ private class CsmAssignmentServiceTest {
     Assert.areEqual(40, countingLoad(charlie.Id), 'Charlie at max');
     Assert.areEqual(60, countingLoad(delta.Id), 'Delta at max');
 
-    Assert.areEqual(
-      1,
-      OnboardingTriggerHandler.backlogAlertsSent - alertsBefore,
-      'One alert for 65 backlog records'
-    );
+    Assert.areEqual(1, alertJobs(), 'One alert for 65 backlog records');
     Assert.areEqual(65, OnboardingTriggerHandler.lastBacklogAlert.backlogCount);
   }
 
@@ -474,7 +472,6 @@ private class CsmAssignmentServiceTest {
     for (Opportunity opp : opportunities) {
       opp.StageName = TestDataFactory.wonStage();
     }
-    Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
     Test.startTest();
     // System mode: acts as the admin, like a Data Loader job closing 200 deals.
@@ -496,10 +493,7 @@ private class CsmAssignmentServiceTest {
     Assert.areEqual(40, countFor(counts, csms[2].Id), 'Charlie');
     Assert.areEqual(60, countFor(counts, csms[3].Id), 'Delta');
     Assert.areEqual(30, countFor(counts, backlogQueueId()), 'Backlog');
-    Assert.areEqual(
-      1,
-      OnboardingTriggerHandler.backlogAlertsSent - alertsBefore
-    );
+    Assert.areEqual(1, alertJobs());
     Assert.areEqual(30, OnboardingTriggerHandler.lastBacklogAlert.backlogCount);
   }
 
@@ -534,17 +528,13 @@ private class CsmAssignmentServiceTest {
   @IsTest
   static void salesUserClosingDealWithNoCsmsSendsItToBacklog() {
     User salesUser = TestDataFactory.createSalesUser();
-    Integer alertsBefore = OnboardingTriggerHandler.backlogAlertsSent;
 
     Test.startTest();
     Opportunity opp = winDealAsSalesUser(salesUser);
     Test.stopTest();
 
     Assert.areEqual(backlogQueueId(), onboardingOwner(opp.Id));
-    Assert.areEqual(
-      1,
-      OnboardingTriggerHandler.backlogAlertsSent - alertsBefore
-    );
+    Assert.areEqual(1, alertJobs());
   }
 
   @IsTest
@@ -628,5 +618,52 @@ private class CsmAssignmentServiceTest {
     );
     Assert.areEqual(csms[0].Id, batch[149].OwnerId, '150th fits');
     Assert.areEqual(backlogQueueId(), batch[150].OwnerId, '151st overflows');
+  }
+
+  // In a partial-success insert where one row fails validation, Salesforce runs the triggers for the
+  // good rows, rolls back, and runs them again on the retry. The alert is queued as a Queueable,
+  // which only survives the attempt that commits, so exactly one alert job is queued.
+  @IsTest
+  static void partialSuccessInsertQueuesExactlyOneBacklogAlert() {
+    // The admin is the only CSM and has no room, so everything overflows (no extra licence needed).
+    TestDataFactory.createCapacity(new User(Id = UserInfo.getUserId()), 0);
+    List<Onboarding__c> onboardings = TestDataFactory.buildOnboardings(
+      accountId(),
+      3
+    );
+    // Fails Start_At_Kickoff, after assignment has already run in before insert.
+    onboardings[1].Stage__c = 'Gathering_Info';
+
+    Test.startTest();
+    // System mode: acts as the admin, like a Data Loader job with partial success.
+    List<Database.SaveResult> results = Database.insert(
+      onboardings,
+      false,
+      AccessLevel.SYSTEM_MODE
+    );
+    Test.stopTest();
+
+    Assert.isTrue(results[0].isSuccess(), 'Row 1 saved');
+    Assert.isFalse(results[1].isSuccess(), 'Row 2 fails Start_At_Kickoff');
+    Assert.isTrue(results[2].isSuccess(), 'Row 3 saved');
+    Assert.areEqual(
+      2,
+      countFor(
+        countsByOwner(
+          new List<Onboarding__c>{ onboardings[0], onboardings[2] }
+        ),
+        backlogQueueId()
+      )
+    );
+    Assert.areEqual(
+      1,
+      alertJobs(),
+      'One alert job, from the attempt that committed'
+    );
+    Assert.areEqual(
+      2,
+      OnboardingTriggerHandler.lastBacklogAlert.backlogCount,
+      'Counts only the two good rows'
+    );
   }
 }

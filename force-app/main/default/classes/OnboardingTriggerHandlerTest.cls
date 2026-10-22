@@ -14,6 +14,7 @@ private class OnboardingTriggerHandlerTest {
   }
 
   private static Id accountId() {
+    // System mode: tests read setup data as the admin.
     return [SELECT Id FROM Account WITH SYSTEM_MODE LIMIT 1].Id;
   }
 
@@ -349,6 +350,38 @@ private class OnboardingTriggerHandlerTest {
     Assert.isTrue(
       reload(onboarding.Id).Current_Stage_Entered__c > earlier,
       'Re-stamped on stage change'
+    );
+  }
+
+  // Prevent_Opportunity_Change normally blocks this; with validation rules bypassed (a data fix) the
+  // unique key must follow the Opportunity, or the Opportunity trigger would find the wrong onboarding.
+  @IsTest
+  static void opportunityKeyFollowsOpportunityWhenChangedWithBypass() {
+    Opportunity first = TestDataFactory.createOpportunity(
+      accountId(),
+      TestDataFactory.wonStage()
+    );
+    Opportunity second = TestDataFactory.createOpportunity(
+      accountId(),
+      TestDataFactory.openStage()
+    );
+    Onboarding__c onboarding = onboardingFor(first.Id);
+    Automation_Bypass__c setting = Automation_Bypass__c.getOrgDefaults();
+    setting.Bypass_Validation_Rules__c = true;
+    // System mode: admin configuration, test setup.
+    update as system setting;
+
+    Test.startTest();
+    // System mode: acts as the admin running a data fix.
+    update as system new Onboarding__c(
+      Id = onboarding.Id,
+      Opportunity__c = second.Id
+    );
+    Test.stopTest();
+
+    Assert.areEqual(
+      String.valueOf(second.Id),
+      onboardingFor(second.Id).Opportunity_Key__c
     );
   }
 }

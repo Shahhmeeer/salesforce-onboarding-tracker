@@ -1,6 +1,6 @@
 /**
- * The only trigger on Onboarding__c. Sets defaults and the name, and (from later steps) assigns
- * owners and tracks stages. All logic lives in OnboardingTriggerHandler.
+ * The only trigger on Onboarding__c. Sets defaults and the name, assigns owners, tracks stages and
+ * alerts CS managers about the backlog. All logic lives in OnboardingTriggerHandler.
  */
 trigger OnboardingTrigger on Onboarding__c(
   before insert,

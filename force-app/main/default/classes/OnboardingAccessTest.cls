@@ -103,7 +103,22 @@ private class OnboardingAccessTest {
     }
     Test.stopTest();
 
-    Assert.isNotNull(error, 'Status is for managers only');
+    // Status is read only for CSMs (field-level security), so the user-mode save is refused.
+    Assert.isInstanceOfType(
+      error,
+      DmlException.class,
+      'Status is for managers only: ' + error
+    );
+    DmlException dmlError = (DmlException) error;
+    Assert.isTrue(
+      dmlError.getMessage().contains('fields being inaccessible'),
+      'Refused for field access: ' + dmlError.getMessage()
+    );
+    Assert.areEqual(
+      new List<String>{ 'Status__c', 'Status_Reason__c' },
+      dmlError.getDmlFieldNames(0),
+      'Both manager-only fields are refused'
+    );
     // System mode: tests read results as the admin.
     Assert.areEqual(
       'Active',
@@ -114,6 +129,50 @@ private class OnboardingAccessTest {
         WITH SYSTEM_MODE
       ]
       .Status__c
+    );
+  }
+
+  @IsTest
+  static void csmCannotCreateAnOnboarding() {
+    User csm = TestDataFactory.createCsmUsers(
+      1,
+      new List<String>{ 'Avery' }
+    )[0];
+    Opportunity opp = TestDataFactory.createOpportunity(
+      accountId(),
+      TestDataFactory.openStage()
+    );
+
+    Test.startTest();
+    Exception error;
+    System.runAs(csm) {
+      try {
+        insert as user new Onboarding__c(Opportunity__c = opp.Id);
+      } catch (Exception e) {
+        error = e;
+      }
+    }
+    Test.stopTest();
+
+    // Managers create onboardings by hand; CSMs have no Create on Onboarding (A12).
+    Assert.isInstanceOfType(
+      error,
+      TypeException.class,
+      'CSMs cannot create onboardings: ' + error
+    );
+    Assert.areEqual(
+      'DML operation INSERT not allowed on Onboarding__c',
+      error.getMessage()
+    );
+    // System mode: tests read results as the admin.
+    Assert.areEqual(
+      0,
+      [
+        SELECT COUNT()
+        FROM Onboarding__c
+        WHERE Opportunity__c = :opp.Id
+        WITH SYSTEM_MODE
+      ]
     );
   }
 
@@ -196,7 +255,10 @@ private class OnboardingAccessTest {
     Exception error;
     System.runAs(csm) {
       try {
-        Integer seen = [SELECT COUNT() FROM CSM_Capacity__c WITH USER_MODE];
+        Database.countQuery(
+          'SELECT COUNT() FROM CSM_Capacity__c',
+          AccessLevel.USER_MODE
+        );
       } catch (Exception e) {
         error = e;
       }

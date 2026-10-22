@@ -263,7 +263,7 @@ If we leave the default, code that worked in testing as an admin can fail or sil
 | Assignment: lock CSM Capacity rows, count onboardings, look up the backlog queue    | System | Must see every CSM and every onboarding regardless of who triggered it.                                 |
 | Stage tracker: read and upsert Onboarding Stage rows                                | System | CSMs can only read stage rows. Automation writes them on their behalf.                                  |
 | Backlog notification: look up the CS Managers group                                 | System | Same reason as assignment.                                                                              |
-| Seed scripts                                                                        | System | Run by an admin for setup.                                                                              |
+| Seed scripts                                                                        | User   | Run by an admin as anonymous Apex, which rejects system mode (A20). The admin's own access is enough.   |
 
 There is no user-mode database operation in the core automation, because every operation is done by the system on the user's behalf. If anyone later adds code that reads or writes data **as the user** (for example, an LWC controller), that code must use `WITH USER_MODE` / `as user`.
 
@@ -508,6 +508,7 @@ Rules:
 - One query for existing onboardings by `Opportunity_Key__c`. One insert. One update.
 - The handler only creates bare onboardings (`Opportunity__c` set). The Onboarding trigger fills in everything else. One place owns defaults.
 - Insert with `Database.insert(records, false, AccessLevel.SYSTEM_MODE)`. If a row fails with a duplicate-value error on `Opportunity_Key__c`, ignore it (another process already created it). Any other error is added to the Opportunity with `addError` so the save fails visibly. A won deal must never end up silently without an onboarding.
+- Update (hold, cancel, reactivate) with `Database.update(records, false, AccessLevel.SYSTEM_MODE)` too. A row that fails adds the `Onboarding_Status_Update_Failed` label, with the reason, to its own Opportunity, so one bad onboarding fails only its own deal, not the rest of a 200-record batch.
 
 ### 6.4 Onboarding trigger
 
@@ -527,14 +528,15 @@ Events: `before insert`, `before update`, `after insert`, `after update`.
 **Before update:**
 
 1. If `Stage__c` changed: set `Current_Stage_Entered__c` = now.
-2. Rebuild the Name only for records where a name input changed: `Name` (a hand edit is put back), `Account__c`, `Opportunity__c` or `Target_Go_Live_Date__c`. Query Account / Opportunity names only for those records.
+2. If `Opportunity__c` changed (only possible with validation rules bypassed, for a data fix): set `Opportunity_Key__c` from it, so the key always matches the deal.
+3. Rebuild the Name only for records where a name input changed: `Name` (a hand edit is put back), `Account__c`, `Opportunity__c` or `Target_Go_Live_Date__c`. Query Account / Opportunity names only for those records.
 
 An update that changes none of these and not the Stage does no work and no queries. This matters on insert: the new Kickoff Scheduled row sets the Kickoff Reached roll-up, and Salesforce saves the onboarding again. Stage moves do not cause that second save, because Kickoff Reached does not change after insert; reaching Go Live does, because Go Live Reached changes.
 
 **After insert:**
 
 1. `OnboardingStageTracker` creates the first stage row (Kickoff Scheduled).
-2. If any records were assigned to the backlog queue: send one custom notification to `CS_Managers`. Title "Onboardings waiting in the backlog"; body "1 new onboarding went …" or "N new onboardings went …" (one Custom Label each). Its target is a page reference to the Onboarding `Backlog` list view (filtered to the `Onboarding_Backlog` queue), by API name, so clicking the alert opens the queue's list. The body ends "Open the Backlog list to assign them."
+2. If any records were assigned to the backlog queue: queue one Queueable job that sends one custom notification to `CS_Managers` after the save commits. A Queueable only runs if its transaction commits, so a partial-success save that Salesforce rolls back and retries sends exactly one alert, not one per attempt. If the transaction cannot queue another job (for example a second 200-record chunk inside batch Apex), the alert is skipped and the save is not blocked (A23). Title "Onboardings waiting in the backlog"; body "1 new onboarding went …" or "N new onboardings went …" (one Custom Label each). Its target is a page reference to the Onboarding `Backlog` list view (filtered to the `Onboarding_Backlog` queue), by API name, so clicking the alert opens the queue's list. The body ends "Open the Backlog list to assign them." (or "… to assign it." for one onboarding).
 
 **After update:**
 
@@ -749,7 +751,7 @@ Two permission sets, one per persona. All access (objects, fields, app, tabs, Ap
 
 | Permission set       | Label              | For                                                                               | Grants                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------- | ------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Onboarding_CSM`     | Onboarding CSM     | CSMs doing the day-to-day work                                                    | App visibility and tabs (Onboardings, Accounts). Onboarding: read, create, edit (no delete). Onboarding Stage: read only. Account: read. System-set fields (`Opportunity_Key__c`, `Current_Stage_Entered__c`, `First_Reached__c`, etc.) read only. Can edit Stage, notes and Target Go-Live Date on records they own.                                                                                                                                                                                                                  |
+| `Onboarding_CSM`     | Onboarding CSM     | CSMs doing the day-to-day work                                                    | App visibility and tabs (Onboardings, Accounts). Onboarding: read, edit (no create, no delete; managers create onboardings by hand, A12). Onboarding Stage: read only. Account: read. System-set fields (`Opportunity_Key__c`, `Current_Stage_Entered__c`, `First_Reached__c`, etc.) read only. Can edit Stage, notes and Target Go-Live Date on records they own.                                                                                                                                                                     |
 | `Onboarding_Manager` | Onboarding Manager | CS managers, leadership and admins of the tracker. The all-access permission set. | Everything in `Onboarding_CSM`, plus: Onboarding View All and Modify All (reassign, work the backlog, change Status), the `Onboarding_Reassign` custom permission (required by `Prevent_Owner_Change` to change the owner of an existing onboarding), Onboarding Stage read, CSM Capacity full access (add, pause, change capacity), CSM Capacities tab, Opportunities tab, Reports and Dashboards tabs, and the Run Reports permission. (Report and dashboard folder access comes from the `CS_Managers` group; see the notes below.) |
 
 Notes:
@@ -809,7 +811,7 @@ Layout (top to bottom):
      - "Current work": the notes field for the current stage only (visibility rules: Gathering Info Notes shown when Stage = Gathering Info; Implementation Notes shown when Stage = Implementation or QA / Review).
      - "Key dates": Target Go-Live Date, Days To Go Live, Is At Risk.
      - "Status": Status, Status Reason (Status Reason only shown when Status is not Active).
-   - **Stage History:** Onboarding Stages related list (Stage, First Reached, Days In Stage, Visits), sorted by Stage Sequence. Plus the Onboarding History related list.
+   - **Stage History:** Onboarding Stages related list (Stage, First Reached, Days In Stage, Visits), sorted by First Reached. That is the same as stage order, because stages cannot be skipped: a stage is always first reached after the one before it. Plus the Onboarding History related list.
    - **Details:** all fields, including both notes fields and system fields.
    - **Related:** Opportunity, Account, files.
 5. **Right column:** Activity timeline.
@@ -874,7 +876,6 @@ Each test asserts behaviour, not just coverage.
 - Re-winning the deal sets it back to Active and creates no second onboarding.
 - Losing a deal that had an onboarding sets it to Cancelled.
 - An onboarding in Post-Launch Review is not changed when its deal is reopened.
-- Opportunity without an Account: onboarding name uses the Opportunity name.
 - **Bulk:** 200 Opportunities closed in one update create exactly 200 onboardings.
 
 **`CsmAssignmentServiceTest`**
@@ -899,6 +900,7 @@ Each test asserts behaviour, not just coverage.
 **`OnboardingTriggerHandlerTest`**
 
 - Name format, ISO date, "TBD" when no date, truncation at 80 characters.
+- Opportunity without an Account: onboarding name uses the Opportunity name.
 - Target date defaults from close date plus setting.
 - Name updates when the target date changes.
 - Duplicate onboarding for the same Opportunity is rejected.
@@ -978,7 +980,7 @@ Run as the admin, in this order. Every script is safe to run twice. Users and CS
 | A9  | What happens when a won deal is reopened?                                | Onboarding goes On Hold and still counts toward capacity, so it can resume without overloading its CSM.                                                                                                                                                                                                                                                                                                                                                                                                               |
 | A10 | What happens when a reopened deal is lost?                               | Onboarding is Cancelled and frees the slot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | A11 | Re-won after reopen or loss?                                             | The same onboarding is reactivated (On Hold or Cancelled back to Active, reason cleared), unless it is at Post-Launch Review. No new onboarding, no reassignment.                                                                                                                                                                                                                                                                                                                                                     |
-| A12 | Manually created onboardings?                                            | Allowed (Opportunity required). Auto-assigned like any other.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| A12 | Manually created onboardings?                                            | Allowed for managers only (Opportunity required). CSMs cannot create onboardings: the required Opportunity lookup needs Opportunity access, which Platform-licence CSMs do not have. Auto-assigned like any other.                                                                                                                                                                                                                                                                                                    |
 | A13 | What does "branded" mean?                                                | App label, record page name, a header on the page, and the brand colors. No logo image. Colors matched to the brief visually: violet #6D28D9 (app and page header), hot pink #EC4899 (thin accent on the page header).                                                                                                                                                                                                                                                                                                |
 | A14 | Does a CSM's Account or Opportunity change flow to the onboarding later? | No. Account is copied at creation only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | A15 | Balance by count or by percentage of capacity?                           | By count, as the brief says "fewest active onboardings". Percentage balancing is noted as an alternative.                                                                                                                                                                                                                                                                                                                                                                                                             |
