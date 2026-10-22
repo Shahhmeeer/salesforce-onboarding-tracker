@@ -10,7 +10,8 @@
  *
  * Uses IsWon / IsClosed, never stage names, so renamed or extra won stages still work. One query,
  * one insert, one update for any number of Opportunities, plus one query only when an insert
- * hits a duplicate. The handler only sets Opportunity__c on
+ * hits a duplicate. Both writes allow partial success: a row that fails puts an error on its own
+ * Opportunity, so one bad onboarding does not fail the other deals in a batch. The handler only sets Opportunity__c on
  * new onboardings; OnboardingTriggerHandler owns every default.
  *
  * without sharing: the user closing the deal is usually a sales user with no access to onboardings,
@@ -84,6 +85,7 @@ public without sharing class OpportunityTriggerHandler extends TriggerHandler {
     List<Onboarding__c> toInsert = new List<Onboarding__c>();
     List<Opportunity> insertedFor = new List<Opportunity>();
     List<Onboarding__c> toUpdate = new List<Onboarding__c>();
+    List<Opportunity> updatedFor = new List<Opportunity>();
 
     for (Opportunity opp : won) {
       Onboarding__c existing = onboardingByKey.get(opp.Id);
@@ -92,6 +94,7 @@ public without sharing class OpportunityTriggerHandler extends TriggerHandler {
         insertedFor.add(opp);
       } else if (canReactivate(existing)) {
         toUpdate.add(withStatus(existing.Id, STATUS_ACTIVE, null));
+        updatedFor.add(opp);
       }
     }
     for (Opportunity opp : reopened) {
@@ -104,6 +107,7 @@ public without sharing class OpportunityTriggerHandler extends TriggerHandler {
             System.Label.Onboarding_Reason_Deal_Reopened
           )
         );
+        updatedFor.add(opp);
       }
     }
     for (Opportunity opp : lost) {
@@ -116,12 +120,12 @@ public without sharing class OpportunityTriggerHandler extends TriggerHandler {
             System.Label.Onboarding_Reason_Deal_Lost
           )
         );
+        updatedFor.add(opp);
       }
     }
 
     if (!toUpdate.isEmpty()) {
-      // System mode: same reason as the query above.
-      update as system toUpdate;
+      updateOnboardings(toUpdate, updatedFor);
     }
     if (!toInsert.isEmpty()) {
       insertOnboardings(toInsert, insertedFor);
@@ -215,6 +219,32 @@ public without sharing class OpportunityTriggerHandler extends TriggerHandler {
             new List<Object>{ firstMessage(result.getErrors()) }
           )
         );
+    }
+  }
+
+  // Partial success, like the insert: a status change that fails (a row lock, or a validation rule
+  // added later) fails only its own Opportunity's save, with the reason, not the whole batch.
+  @TestVisible
+  private static void updateOnboardings(
+    List<Onboarding__c> onboardings,
+    List<Opportunity> opportunities
+  ) {
+    // System mode: the user saving the deal may have no access to onboardings (spec 4.5).
+    List<Database.SaveResult> results = Database.update(
+      onboardings,
+      false,
+      AccessLevel.SYSTEM_MODE
+    );
+    for (Integer i = 0; i < results.size(); i++) {
+      if (!results[i].isSuccess()) {
+        opportunities[i]
+          .addError(
+            String.format(
+              System.Label.Onboarding_Status_Update_Failed,
+              new List<Object>{ firstMessage(results[i].getErrors()) }
+            )
+          );
+      }
     }
   }
 

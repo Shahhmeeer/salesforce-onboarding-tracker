@@ -239,11 +239,7 @@ private class OpportunityTriggerHandlerTest {
       // The sales user really has no access to onboardings, so the automation needed system mode.
       Boolean blocked = false;
       try {
-        List<Onboarding__c> visible = [
-          SELECT Id
-          FROM Onboarding__c
-          WITH USER_MODE
-        ];
+        Database.query('SELECT Id FROM Onboarding__c', AccessLevel.USER_MODE);
       } catch (QueryException e) {
         blocked = true;
       }
@@ -434,5 +430,53 @@ private class OpportunityTriggerHandlerTest {
 
     Assert.areEqual(1, dmlStatements, 'Only the Opportunity update itself');
     Assert.areEqual(0, queries, 'No onboarding lookup');
+  }
+
+  @IsTest
+  static void failedStatusUpdateFailsOnlyItsOwnOpportunity() {
+    Opportunity good = wonDealWithOnboarding();
+    Opportunity bad = wonDealWithOnboarding();
+    Id goodOnboarding = onboardingsFor(good.Id)[0].Id;
+    Id badOnboarding = onboardingsFor(bad.Id)[0].Id;
+
+    Test.startTest();
+    // The second change breaks a real rule (Require_Status_Reason: On Hold with no reason).
+    OpportunityTriggerHandler.updateOnboardings(
+      new List<Onboarding__c>{
+        new Onboarding__c(
+          Id = goodOnboarding,
+          Status__c = 'On_Hold',
+          Status_Reason__c = 'Deal reopened by Sales'
+        ),
+        new Onboarding__c(Id = badOnboarding, Status__c = 'On_Hold')
+      },
+      new List<Opportunity>{ good, bad }
+    );
+    Test.stopTest();
+
+    Assert.isFalse(
+      good.hasErrors(),
+      'Good deal unaffected: ' + good.getErrors()
+    );
+    Assert.areEqual('On_Hold', onboardingsFor(good.Id)[0].Status__c);
+    Assert.isTrue(bad.hasErrors(), 'The failing change fails its own deal');
+    String message = bad.getErrors()[0].getMessage();
+    Assert.isTrue(
+      message.startsWith(
+        System.Label.Onboarding_Status_Update_Failed.substringBefore('{0}')
+      ),
+      'Uses the Onboarding_Status_Update_Failed label: ' + message
+    );
+    Assert.isTrue(
+      message.contains(
+        'Add a reason when an onboarding is On Hold or Cancelled.'
+      ),
+      'Includes the underlying error: ' + message
+    );
+    Assert.areEqual(
+      'Active',
+      onboardingsFor(bad.Id)[0].Status__c,
+      'Not changed'
+    );
   }
 }

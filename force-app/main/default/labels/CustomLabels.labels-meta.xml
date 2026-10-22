@@ -50,6 +50,16 @@
     >The onboarding for this won deal could not be created: {0}. Fix the problem and save again, or ask your Salesforce admin for help.</value>
     </labels>
     <labels>
+        <fullName>Onboarding_Status_Update_Failed</fullName>
+        <categories>Onboarding</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription
+    >Error when a deal change cannot update its onboarding. {0} = reason.</shortDescription>
+        <value
+    >The onboarding for this deal could not be updated to match it: {0}. Fix the problem and save again, or ask your Salesforce admin for help.</value>
+    </labels>
+    <labels>
         <fullName>Onboarding_Reason_Deal_Lost</fullName>
         <categories>Onboarding</categories>
         <language>en_US</language>
