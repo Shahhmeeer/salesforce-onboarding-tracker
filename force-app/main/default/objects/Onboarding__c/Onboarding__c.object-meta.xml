@@ -25,7 +25,7 @@
     <label>Onboarding</label>
     <nameField>
         <description
-    >Customer name and target launch date, for example Acme Corp - Go Live 2026-11-20. Rebuilt by automation on every save so it always matches the data.</description>
+    >Customer name and target launch date, for example Acme Corp - Go Live 2026-11-20. Rebuilt by automation whenever the Name, Account, Opportunity or target date changes, so it always matches them.</description>
         <label>Onboarding Name</label>
         <trackHistory>false</trackHistory>
         <type>Text</type>

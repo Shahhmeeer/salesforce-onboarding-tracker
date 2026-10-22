@@ -243,7 +243,7 @@ public without sharing class DemoDataSeeder {
       keys.add(opp.Id);
     }
     Set<String> existing = new Set<String>();
-    // System mode: Opportunity_Key__c is hidden from every permission set.
+    // System mode: the admin may not be able to see every onboarding, and earlier runs must be found.
     for (Onboarding__c onboarding : [
       SELECT Opportunity_Key__c
       FROM Onboarding__c
