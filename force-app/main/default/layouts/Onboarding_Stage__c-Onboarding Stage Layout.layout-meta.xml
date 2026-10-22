@@ -53,10 +53,6 @@
         <editHeading>true</editHeading>
         <label>System</label>
         <layoutColumns>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>Unique_Key__c</field>
-            </layoutItems>
         </layoutColumns>
         <layoutColumns>
             <layoutItems>

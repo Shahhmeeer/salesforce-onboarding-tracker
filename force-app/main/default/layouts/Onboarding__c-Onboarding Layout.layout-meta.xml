@@ -100,10 +100,6 @@
                 <behavior>Readonly</behavior>
                 <field>Days_To_Launch__c</field>
             </layoutItems>
-            <layoutItems>
-                <behavior>Readonly</behavior>
-                <field>Opportunity_Key__c</field>
-            </layoutItems>
         </layoutColumns>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>
@@ -170,7 +166,7 @@
         </platformActionListItems>
     </platformActionList>
     <relatedLists>
-        <fields>NAME</fields>
+        <fields>Stage__c</fields>
         <fields>First_Reached__c</fields>
         <fields>Days_In_Stage__c</fields>
         <fields>Visit_Count__c</fields>
