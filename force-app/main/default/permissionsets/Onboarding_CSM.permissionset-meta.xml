@@ -5,7 +5,7 @@
         <visible>true</visible>
     </applicationVisibilities>
     <description
-  >For CSMs doing day-to-day onboarding work. Read and edit onboardings (no delete), read stage history and accounts. Fields set by automation are read only. Gives the Revinfinity Onboarding Tracker app and the Onboardings and Accounts tabs.</description>
+  >For CSMs doing day-to-day onboarding work. Read and edit onboardings (no create or delete), read stage history and accounts. Fields set by automation are read only. Gives the Revinfinity Onboarding Tracker app and the Onboardings and Accounts tabs.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Onboarding CSM</label>
     <fieldPermissions>
@@ -138,7 +138,7 @@
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <objectPermissions>
-        <allowCreate>true</allowCreate>
+        <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>
         <allowEdit>true</allowEdit>
         <allowRead>true</allowRead>
